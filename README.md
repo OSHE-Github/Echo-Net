@@ -142,15 +142,23 @@ Table X. Data from Nano VNA for Half Pole Antenna
 With this antenna design the read range was measured with 4 different configurations as seen in Figure X. The first one was with the tag on the mental band. With this configuration no read range was able to occur. This was hypothesized to be due to the JB weld that was used to connect the tag to the band. This is further supported by the fact that when the tag is removed from the band but left in close proximity to the band the tag can be read. This leads to the belief that it is not the metal of the band that is hindering the read range. 
 	The next configuration that was tested was the tag with no band or additional antenna. The read range in this configuration was very limited, only around a few centimeters and was very orientation dependent. 
 	To compensate for the short read range a loop antenna was added to the tag to increase the range. This had an immediate effect with the read range jumping up to 1-1.5 meters and the tags being less orientation dependent while being read. In addition while not being consistent that the maximum range the tags were detected up to was 2.5m. 
-
+<div align="center">
+<img src="Media/RFIDrange.png" alt="Reader Schemitic" width="229" height="256" style="transform: rotate(45deg);">
 
 Figure X. Read Range of the Tags in Different Configurations
+</div>
+
+
 
 # Future Work
 To advance this project forward custom flex PCBs will be designed such as the reference in Figure X. This flex PCB will then be epoxied to the banners with the additional loop antenna confined with them. To determine the optimal antenna design multiple lengths, widths, and dielectrics will be tested. By creating a swab of these antenna designs it will be able to determine the ideal design for read range. 
-
+<div align="center">
+<img src="Media/PCBantenna.png" alt="Reader Schemitic" width="229" height="256" style="transform: rotate(45deg);">
 
 Figure X. Mock-Up of Possible PCB Antenna 
+</div>
+
+
 
 In addition to this a PCB will also be designed for the reader design. Currently it is only a prototype board which works great for testing and rapid prototyping but for future designs a PCB will be made to make it more robust and easier to assemble. 
 Additional testing also needs to be completed for battery option testing. Two options were evaluated for viability but neither has yet been tested to confirm life span. In addition the trickle charge from the wind turbine should be added into the life span of the car battery option. In addition to this to decrease power consumption low power interpret monitoring can also be evaluated.
