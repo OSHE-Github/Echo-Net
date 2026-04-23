@@ -1,4 +1,4 @@
-Turbine \-   
+# Turbine    
 Outlined Instruction Steps:
 
 1. Print 3d printed parts  
@@ -8,7 +8,7 @@ Outlined Instruction Steps:
    4. 5 Spoke shaft collars  
    5. 1 Motor Gear  
    6. 1 Shaft Gear  
-   7. \[Link to files\]  
+   7. [Link to files]  
 2. Cut spokes to 15 cm (15 total spokes)
 
 Figure X. Turbine Spokes Measured Length
@@ -35,8 +35,9 @@ Figure X. JB Welded Turbine Blade
 
 8. Once assembled the final product should look like the turbine seen in Figure X
 
-Figure X. Fully Assembled Turbine  
-Reader \- 
+Figure X. Fully Assembled Turbine
+
+# Reader
 
 1. Solder female headers onto a large piece of prototyping board in a manner that will alow the SparkFun M7E Hector, the Arduino, and the SD card reader to be mounted (making sure to leave room for a level shifter)  
 2. Solder together the level shifter on a separate piece of prototyping board with a male header  
@@ -50,7 +51,7 @@ Reader \-
      
 8. Compile and upload the code to the Arduino using the Arduino IDE
 
-Antenna \-
+# Antenna 
 
 1. Download the .stl file for the antenna case   
 2. 3D printing the case   
