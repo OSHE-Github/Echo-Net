@@ -42,7 +42,7 @@ Outlined Instruction Steps:
 <div align="center">
 <img src="../Media/jbWeldBlade.jpg" alt="Final Assembled Reader" width="229" height="256" style="transform: rotate(45deg);">
 </div>
-Figure X. JB Welded Turbine Blade 
+
 
 8. Once assembled the final product should look like the turbine seen in Figure X
 <div align="center">
@@ -59,9 +59,9 @@ Figure X. JB Welded Turbine Blade
 6. Solder the SparkFun M7E Hecto’s TX and RX pins to the high side of the level shifter (making sure that through the level shifter, the RX pin of the Arduino board connects to the TX pin on the SparkFun board and vice versa)  
 7. Follow the wiring diagram to solder the signal lines to the SD card reader and Arduino (→MISO, →MOSI, →SCK, →CS)  
 <div align="center">
-<img src="Media/spokes.jpg" alt="Final Assembled Reader" width="229" height="256" style="transform: rotate(45deg);">
+<img src="../Media/prodoboard.png" alt="Final Assembled Reader" width="229" height="256" style="transform: rotate(45deg);">
 </div>  
-   Figure X. Soldered Protoboard  
+    
      
 8. Compile and upload the code to the Arduino using the Arduino IDE
 
@@ -72,28 +72,25 @@ Figure X. JB Welded Turbine Blade
    1. Requires two of the same prints sides are identical  
         
 <div align="center">
-<img src="Media/spokes.jpg" alt="Final Assembled Reader" width="229" height="256" style="transform: rotate(45deg);">
+<img src="../Media/antennaPrint.png" alt="Final Assembled Reader" width="229" height="256" style="transform: rotate(45deg);">
 </div>
-
         
 3. Cut 2 piece of 8 Gauge copper wire to 73 cm  
 4. Use a hammer to flat one end of the wire  
 5. Drill a small hole through the flatten copper   
    1. This hole helps with thermal relief when soldering   
 <div align="center">
-<img src="Media/spokes.jpg" alt="Final Assembled Reader" width="229" height="256" style="transform: rotate(45deg);">
-</div>
-      Figure X. Wire Soldered in hole on Flattened Section  
+<img src="../Media/Wiresolder.jpg" alt="Final Assembled Reader" width="229" height="256" style="transform: rotate(45deg);">
+</div> 
         
 6. Solder a small wire between your SMA port and the hole in the coper wire  
    1. Make sure the wire is long enough so that the copper wire can sit in the grooves and reach the bottom where the SMA port is   
 <div align="center">
-<img src="Media/spokes.jpg" alt="Final Assembled Reader" width="229" height="256" style="transform: rotate(45deg);">
+<img src="../Media/SMAwireSaulder.jpg" alt="Final Assembled Reader" width="229" height="256" style="transform: rotate(45deg);">
 </div> 
-      Figure X. Wires Soldered to SMA Port  
+       
 7. Confirm that copper wires and SMA port are in the proper position before screwing the two sides together  
 8. Connect antenna to SMA port of reader  
 <div align="center">
-<img src="Media/spokes.jpg" alt="Final Assembled Reader" width="229" height="256" style="transform: rotate(45deg);">
+<img src="../Media/finishAntenna.jpg" alt="Final Assembled Reader" width="229" height="256" style="transform: rotate(45deg);">
 </div>
-   Figure X. Full Assembled Antenna 
