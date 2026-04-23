@@ -98,3 +98,59 @@ In addition to the tags internal antenna which is very small a circular antenna 
 Figure X: Tag with Circular Antenna
 </div>
 
+# Results
+Power- 
+The current motor in our turbine design can produce around 12V when spun in ideal condition as seen in Figure X. It also can produce around _____ A. With this we are able to produce ___ watts of power. 
+
+<div align="center">
+<img src="Media/Oscope.png" alt="Reader Schemitic" width="229" height="256" style="transform: rotate(45deg);">
+
+Figure X: Oscilloscope Readings 
+</div>
+
+To determine the amount of power that needed to be generated the power consumption of the read was measured at different dB output. The results of the this testing can be seen in Figure X. The general operating range of this device is between  20-27 dB which means that on average  it will be consuming between 2-2.85 watts. This means that having the power completed provided my the turbine is impractical. To compensate for this battery options were evaluated.
+
+<div align="center">
+<img src="Media/ReaderpowerPlot.png" alt="Reader Schemitic" width="229" height="256" style="transform: rotate(45deg);">
+</div>
+
+
+The first battery option evaluated was a car battery that would be left at the stationary site to supplement the turbine. Assuming a car battery of 12.8V and 60 Ahr it can be determined that there 786 Whr. Assuming that there is 90% efficiency in the step down to operating voltage and that the battery should not be operated below 50%, as recommended for lead acid batterying the device could be powered for 3.83 days straight. 
+	Another option that was evaluated was a hand held power brick used for charging phones. An example that was found commercially available had an estimated 20,000 mAhr at 3.7V which equates to 74 Whr. Assuming the same 90% efficiency that was had with the car battery it was determined that the device could be powered for 17.8 hrs. This provides a viable hand held power solution in a light weight portable package
+
+
+Data-
+
+Using a Micro VNA the characteristics of out half dipole antenna were measured as seen in Figure x, and summarized in Table x. This data is closely aligned with the that of the simulation with the desired S11 LOGMAG being around -15 dB and the impedance of the antenna being 50 Ω. 
+
+<div align="center">
+<img src="Media/VNA.jpg" alt="Reader Schemitic" width="229" height="256" style="transform: rotate(45deg);">
+	
+Figure X. Nano VNA Data for Half Pole Antenna
+
+ 
+
+Table X. Data from Nano VNA for Half Pole Antenna 
+| Parameter        | Setting | Value    |
+|------------------|--------|----------|
+| S11 LOGMAG       | 10 dB  | -15.98 dB |
+| S11 R            | 100 Ω  | 50.63 Ω  |
+| S11 X            | 100 Ω  | 16.19 Ω  |
+| SWR              | 250 m  | 1.378    |
+</div>
+
+With this antenna design the read range was measured with 4 different configurations as seen in Figure X. The first one was with the tag on the mental band. With this configuration no read range was able to occur. This was hypothesized to be due to the JB weld that was used to connect the tag to the band. This is further supported by the fact that when the tag is removed from the band but left in close proximity to the band the tag can be read. This leads to the belief that it is not the metal of the band that is hindering the read range. 
+	The next configuration that was tested was the tag with no band or additional antenna. The read range in this configuration was very limited, only around a few centimeters and was very orientation dependent. 
+	To compensate for the short read range a loop antenna was added to the tag to increase the range. This had an immediate effect with the read range jumping up to 1-1.5 meters and the tags being less orientation dependent while being read. In addition while not being consistent that the maximum range the tags were detected up to was 2.5m. 
+
+
+Figure X. Read Range of the Tags in Different Configurations
+
+# Future Work
+To advance this project forward custom flex PCBs will be designed such as the reference in Figure X. This flex PCB will then be epoxied to the banners with the additional loop antenna confined with them. To determine the optimal antenna design multiple lengths, widths, and dielectrics will be tested. By creating a swab of these antenna designs it will be able to determine the ideal design for read range. 
+
+
+Figure X. Mock-Up of Possible PCB Antenna 
+
+In addition to this a PCB will also be designed for the reader design. Currently it is only a prototype board which works great for testing and rapid prototyping but for future designs a PCB will be made to make it more robust and easier to assemble. 
+Additional testing also needs to be completed for battery option testing. Two options were evaluated for viability but neither has yet been tested to confirm life span. In addition the trickle charge from the wind turbine should be added into the life span of the car battery option. In addition to this to decrease power consumption low power interpret monitoring can also be evaluated.
