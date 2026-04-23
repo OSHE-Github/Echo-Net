@@ -6,6 +6,8 @@ While these devices are being developed with the intention of bats in mind their
 
 <div align="center">
 <img src="https://github.com/OSHE-Github/Echo-Net/blob/main/Media/Reader.jpg" alt="Final Assembled Reader" width="229" height="256" style="transform: rotate(45deg);">
+
+Figure X: Final Reader Prototype
 </div>
 
 # Problem Statement
@@ -20,6 +22,8 @@ To start the design a general block diagram of the system was laid out as seen i
 
 <div align="center">
 <img src="Media/systemBlockDiagram.png" alt="System Block Diagram for Reader" width="229" height="256" style="transform: rotate(45deg);">
+
+Figure X: System Block Diagram for Reader
 </div>
 
 Power -
@@ -51,8 +55,46 @@ The rest of the reader design consisted of a logic level shifter and a SD card m
 <div align="center">
 <img src="Media/readerSchemitic.png" alt="Reader Schemitic" width="229" height="256" style="transform: rotate(45deg);">
 
-hebe jeebe
+Figure X: Reader Schemitic
 </div>
 
 The code for the reader is relatively simple. It leverages the example code from the SparkFun_UHF_RFID_Reader library constant reading example. With the addition of writing to the SD card through some simple helper functions the data collected on the SD card can be seen in Figure X. There is also an option to enable a required trigger hold in order to start reading.
+
+<div align="center">
+<img src="Media/SDCardReadout.png" alt="Reader Schemitic" width="229" height="256" style="transform: rotate(45deg);">
+
+Figure X: SD Card Data Collection Readout
+</div>
+
+The next stage in our data collected system is the antenna that is used to transmit to the tags. Three designs for an antenna were initially tested, a helical antenna, a clover leaf antenna, and a half dipole antenna. 
+
+A ½ wave dipole antenna was decided on and constructed using copper pipe and a 3D-printed body. This resulted in an antenna that was durable, simple to construct, and lightweight/mobile. The dipole antenna was only decided on after both attempting to create other styles of antennas such as a helical and cloverleaf antenna, and after testing some 915MHz antennas we had lying around. 
+
+The helical antenna was not selected due to its large size and directionality. It was difficult to get it aligned properly which resulted in missed reading. In addition its large size made it impractical for a hand held antenna. The clovers' leafs set back where in the form its fragility and lower read range. With there being little structure to the clover leaf, concerns around its ability to survive a winter in the cave resulted in the decision to favor the more robust half dipole design.
+
+The entail design of this antenna was done in Matlab antenna designer, with a rendering of the half dipole antenna being seen in Figure X. In addition the directivity of the antenna can be seen in Figure X. This shows that the antenna can read the tags in any direction as it is circularly polarized.  Finally an S11 plot is in Figure X, this plot as a dip at 915 MHz down to -15dB which shows that the antenna is most efficient at a frequency of 915 MHz which is desired.
+
+<div align="center">
+<img src="Media/halfDipoleDesign.png" alt="Reader Schemitic" width="229" height="256" style="transform: rotate(45deg);">
+
+Figure X: Half Dipole Antenna Design
+</div>
+
+<div align="center">
+<img src="Media/halfDpA(something).png" alt="Reader Schemitic" width="229" height="256" style="transform: rotate(45deg);">
+
+Figure X: HalfDipole Antenna S11 Plot
+</div>
+
+The final part of our design was the selection of a tag which is attached to the bat. The tag was the ____________, which can be read between the frequencies of 860 - 940 Mhz. It also has a small size of ____________ which help to reduce the weight that is attached to the bat.
+
+[IMAGE of TAG of BAND]
+
+In addition to the tags internal antenna which is very small a circular antenna was attached to the tag as seen in Figure X. This was done to increase the read range and directionality of the tag. By utilizing this the read range was able to be significantly increased along with making the tag easier to read in different orientations.
+
+<div align="center">
+<img src="Media/tag&antenna.jpg" alt="Reader Schemitic" width="229" height="256" style="transform: rotate(45deg);">
+
+Figure X: Tag with Circular Antenna
+</div>
 
