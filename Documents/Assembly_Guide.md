@@ -11,42 +11,42 @@ Outlined Instruction Steps:
    7. [Link to files](../CAD/Turbine)  
 2. Cut spokes to 15 cm (15 total spokes)
 <div align="center">
-<img src="Media/spokes.jpg" alt="Final Assembled Reader" width="229" height="256" style="transform: rotate(45deg);">
+<img src="../Media/spokes.jpg" alt="Final Assembled Reader" width="229" height="256" style="transform: rotate(45deg);">
 </div>
 
 3. Place motor and bearings in place in the motor housing
 <div align="center">
-<img src="Media/Baring1.jpg" alt="Final Assembled Reader" width="229" height="256" style="transform: rotate(45deg);">
-<img src="Media/baring2.jpg" alt="Final Assembled Reader" width="229" height="256" style="transform: rotate(45deg);">
+<img src="../Media/Baring1.jpg" alt="Final Assembled Reader" width="229" height="256" style="transform: rotate(45deg);">
+<img src="../Media/baring2.jpg" alt="Final Assembled Reader" width="229" height="256" style="transform: rotate(45deg);">
 </div>
 
 4. Put the motor gear on motor shaft
 <div align="center">
-<img src="Media/motorHousing.jpg" alt="Final Assembled Reader" width="229" height="256" style="transform: rotate(45deg);">
+<img src="../Media/motorHousing.jpg" alt="Final Assembled Reader" width="229" height="256" style="transform: rotate(45deg);">
 </div>
 
 5. Epoxy / JB Weld spokes into shaft collars
 <div align="center">
-<img src="Media/jbweldshaft.jpg" alt="Final Assembled Reader" width="229" height="256" style="transform: rotate(45deg);">
+<img src="../Media/jbweldshaft.jpg" alt="Final Assembled Reader" width="229" height="256" style="transform: rotate(45deg);">
 </div> 
 
 6. Attach shaft collar items on the shaft (shaft gear, blade attachment points) either by friction or with an adhesive (if using adhesive, wait until the blades are connected to the spokes for proper spacing)
 <div align="center">
-<img src="Media/TbA1.jpg" alt="Final Assembled Reader" width="229" height="256" style="transform: rotate(45deg);">
-<img src="Media/TbA2.jpg" alt="Final Assembled Reader" width="229" height="256" style="transform: rotate(45deg);">
-<img src="Media/TbA3.jpg" alt="Final Assembled Reader" width="229" height="256" style="transform: rotate(45deg);">
+<img src="../Media/TbA1.jpg" alt="Final Assembled Reader" width="229" height="256" style="transform: rotate(45deg);">
+<img src="../Media/TbA2.jpg" alt="Final Assembled Reader" width="229" height="256" style="transform: rotate(45deg);">
+<img src="../Media/TbA3.jpg" alt="Final Assembled Reader" width="229" height="256" style="transform: rotate(45deg);">
 </div>
 
 
 7. Epoxy / JB Weld spokes into blades while the spokes and shaft collar attachment points are on the turbine (and epoxy the blades together)
 <div align="center">
-<img src="Media/jbWeldBlade.jpg" alt="Final Assembled Reader" width="229" height="256" style="transform: rotate(45deg);">
+<img src="../Media/jbWeldBlade.jpg" alt="Final Assembled Reader" width="229" height="256" style="transform: rotate(45deg);">
 </div>
 Figure X. JB Welded Turbine Blade 
 
 8. Once assembled the final product should look like the turbine seen in Figure X
 <div align="center">
-<img src="Media/TbFull.jpg" alt="Final Assembled Reader" width="229" height="256" style="transform: rotate(45deg);">
+<img src="../Media/TbFull.jpg" alt="Final Assembled Reader" width="229" height="256" style="transform: rotate(45deg);">
 </div>
 
 # Reader
