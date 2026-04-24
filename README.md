@@ -75,7 +75,7 @@ The helical antenna was not selected due to its large size and directionality. I
 The initial design of this antenna was done in Matlab antenna designer, with a rendering of the half dipole antenna being seen in Figure 5. In addition the directivity of the antenna can be seen in Figure 5. This shows that the antenna can read the tags in any direction as it is circularly polarized.  Finally an S11 plot is in Figure 6, this plot as a dip at 915 MHz down to -15dB which shows that the antenna is most efficient at a frequency of 915 MHz which is desired.
 
 <div align="center">
-<img src="Media/halfDipoleDesign.png" alt="Reader Schemitic" width="200" style="transform: rotate(45deg);">
+<img src="Media/halfDipoleDesign.png" alt="Reader Schemitic" width="100" style="transform: rotate(45deg);">
 
 Figure 5: Half Dipole Antenna Design
 </div>
