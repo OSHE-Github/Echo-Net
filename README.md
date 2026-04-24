@@ -115,7 +115,7 @@ Figure 9: Oscilloscope Readings
 To determine the amount of power that needed to be generated the power consumption of the read was measured at different dB output. The results of the this testing can be seen in Figure 10. The general operating range of this device is between  20-27 dB which means that on average  it will be consuming between 2-2.85 watts. This means that having the power completed provided my the turbine is impractical. To compensate for this battery options were evaluated.
 
 <div align="center">
-<img src="Media/ReaderpowerPlot.png" alt="Reader Schemitic" width="229" height="256" style="transform: rotate(45deg);">
+<img src="Media/ReaderpowerPlot.png" alt="Reader Schemitic" width="350" style="transform: rotate(45deg);">
 </div>
 
 Figure 10: Read Power Consumption based on Output dB
