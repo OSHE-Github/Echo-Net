@@ -21,7 +21,7 @@ Their current strategy for tracking the bats is color tags which are attached to
 To start the design a general block diagram of the system was laid out as seen in Figure 2. This system has three main sections, one of which was manually focused on this semester in the data. The power system was also evaluated, and the interrupt system was left for future semesters.
 
 <div align="center">
-<img src="Media/systemBlockDiagram.png" alt="System Block Diagram for Reader" width="300" style="transform: rotate(45deg);">
+<img src="Media/systemBlockDiagram.png" alt="System Block Diagram for Reader" width="400" style="transform: rotate(45deg);">
 
 Figure 2: System Block Diagram for Reader
 </div>
@@ -61,7 +61,7 @@ Figure 3: Reader Schematic
 The code for the reader is relatively simple. It leverages the example code from the SparkFun_UHF_RFID_Reader library constant reading example. With the addition of writing to the SD card through some simple helper functions the data collected on the SD card can be seen in Figure 4. There is also an option to enable a required trigger hold in order to start reading.
 
 <div align="center">
-<img src="Media/SDCardReadout.png" alt="Reader Schemitic" width="350" style="transform: rotate(45deg);">
+<img src="Media/SDCardReadout.png" alt="Reader Schemitic" width="400" style="transform: rotate(45deg);">
 
 Figure 4: SD Card Data Collection Readout
 </div>
@@ -75,7 +75,7 @@ The helical antenna was not selected due to its large size and directionality. I
 The initial design of this antenna was done in Matlab antenna designer, with a rendering of the half dipole antenna being seen in Figure 5. In addition the directivity of the antenna can be seen in Figure 5. This shows that the antenna can read the tags in any direction as it is circularly polarized.  Finally an S11 plot is in Figure 6, this plot as a dip at 915 MHz down to -15dB which shows that the antenna is most efficient at a frequency of 915 MHz which is desired.
 
 <div align="center">
-<img src="Media/halfDipoleDesign.png" alt="Reader Schemitic" width="250" style="transform: rotate(45deg);">
+<img src="Media/halfDipoleDesign.png" alt="Reader Schemitic" width="200" style="transform: rotate(45deg);">
 
 Figure 5: Half Dipole Antenna Design
 </div>
