@@ -1,7 +1,7 @@
 # Turbine    
 Outlined Instruction Steps:
 
-1. Print 3d printed parts  
+1. Print 3D printed parts  
    1. 3 “Top” pieces  
    2. 3 “Bottom” pieces  
    3. 9 “Middle” pieces  
@@ -44,7 +44,7 @@ Outlined Instruction Steps:
 </div>
 
 
-8. Once assembled the final product should look like the turbine seen in Figure X
+8. Once assembled the final product should look like the turbine seen below
 <div align="center">
 <img src="../Media/TbFull.jpg" alt="Final Assembled Reader" width="229" height="256" style="transform: rotate(45deg);">
 </div>
@@ -68,14 +68,14 @@ Outlined Instruction Steps:
 # Antenna 
 
 1. Download the .stl file for the antenna case   
-2. 3D printing the case   
+2. 3D print the case   
    1. Requires two of the same prints sides are identical  
         
 <div align="center">
 <img src="../Media/antennaPrint.png" alt="Final Assembled Reader" width="229" height="256" style="transform: rotate(45deg);">
 </div>
         
-3. Cut 2 piece of 8 Gauge copper wire to 73 cm  
+3. Cut 2 pieces of 8 Gauge copper wire to 73 cm  
 4. Use a hammer to flat one end of the wire  
 5. Drill a small hole through the flatten copper   
    1. This hole helps with thermal relief when soldering   
