@@ -131,7 +131,7 @@ Another option that was evaluated was a hand held power brick used for charging 
 Using a Micro VNA the characteristics of out half dipole antenna were measured as seen in Figure 11, and summarized in Table x. This data is closely aligned with the that of the simulation with the desired S11 LOGMAG being around -15 dB and the impedance of the antenna being 50 Ω. 
 
 <div align="center">
-<img src="Media/VNA.jpg" alt="Reader Schemitic" width="229" height="256" style="transform: rotate(45deg);">
+<img src="Media/VNA.jpg" alt="Reader Schemitic" width="400" style="transform: rotate(45deg);">
 	
 Figure 11. Nano VNA Data for Half Pole Antenna
 
