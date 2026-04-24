@@ -151,7 +151,7 @@ With this antenna design the read range was measured with 4 different configurat
 The next configuration that was tested was the tag with no band or additional antenna. The read range in this configuration was very limited, only around a few centimeters and was very orientation dependent. 
 To compensate for the short read range a loop antenna was added to the tag to increase the range. This had an immediate effect with the read range jumping up to 1-1.5 meters and the tags being less orientation dependent while being read. In addition while not being consistent that the maximum range the tags were detected up to was 2.5m. 
 <div align="center">
-<img src="Media/RFIDrange.png" alt="Reader Schemitic" width="229" height="256" style="transform: rotate(45deg);">
+<img src="Media/RFIDrange.png" alt="Reader Schemitic" width="400" style="transform: rotate(45deg);">
 
 Figure 12. Read Range of the Tags in Different Configurations
 </div>
@@ -160,7 +160,7 @@ Figure 12. Read Range of the Tags in Different Configurations
 # Future Work
 To advance this project forward custom flex PCBs will be designed such as the reference in Figure 13. This flex PCB will then be epoxied to the banners with the additional loop antenna confined with them. To determine the optimal antenna design multiple lengths, widths, and dielectrics will be tested. By creating a swab of these antenna designs it will be able to determine the ideal design for read range. 
 <div align="center">
-<img src="Media/PCBantenna.png" alt="Reader Schemitic" width="229" height="256" style="transform: rotate(45deg);">
+<img src="Media/PCBantenna.png" alt="Reader Schemitic" width="400" style="transform: rotate(45deg);">
 
 Figure 13. Mock-Up of Possible PCB Antenna 
 </div>
