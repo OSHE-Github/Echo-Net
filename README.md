@@ -81,7 +81,7 @@ Figure 5: Half Dipole Antenna Design
 </div>
 
 <div align="center">
-<img src="Media/halfDpA(something).png" alt="Reader Schemitic" width="450" style="transform: rotate(45deg);">
+<img src="Media/halfDpA(something).png" alt="Reader Schemitic" width="500" style="transform: rotate(45deg);">
 
 Figure 6: HalfDipole Antenna S11 Plot
 </div>
