@@ -75,13 +75,13 @@ The helical antenna was not selected due to its large size and directionality. I
 The initial design of this antenna was done in Matlab antenna designer, with a rendering of the half dipole antenna being seen in Figure 5. In addition the directivity of the antenna can be seen in Figure 5. This shows that the antenna can read the tags in any direction as it is circularly polarized.  Finally an S11 plot is in Figure 6, this plot as a dip at 915 MHz down to -15dB which shows that the antenna is most efficient at a frequency of 915 MHz which is desired.
 
 <div align="center">
-<img src="Media/halfDipoleDesign.png" alt="Reader Schemitic" width="229" height="256" style="transform: rotate(45deg);">
+<img src="Media/halfDipoleDesign.png" alt="Reader Schemitic" width="350" style="transform: rotate(45deg);">
 
 Figure 5: Half Dipole Antenna Design
 </div>
 
 <div align="center">
-<img src="Media/halfDpA(something).png" alt="Reader Schemitic" width="229" height="256" style="transform: rotate(45deg);">
+<img src="Media/halfDpA(something).png" alt="Reader Schemitic" width="350" style="transform: rotate(45deg);">
 
 Figure 6: HalfDipole Antenna S11 Plot
 </div>
@@ -89,7 +89,7 @@ Figure 6: HalfDipole Antenna S11 Plot
 The final part of our design was the selection of a tag which is attached to the bat. The tag was the Impinj Monza R6P, which can be read between the frequencies of 860 - 940 Mhz. It also has a small size of 2.6x2.6x0.8mm which help to reduce the weight that is attached to the bat.
 
 <div align="center">
-<img src="https://github.com/OSHE-Github/Echo-Net/blob/main/Media/Bat_Band_Example.jpeg" style="transform: rotate(45deg);">
+<img src="https://github.com/OSHE-Github/Echo-Net/blob/main/Media/Bat_Band_Example.jpeg" width="300" style="transform: rotate(45deg);">
 
 Figure 7: Example of a Tag and Band Attached to a Bat
 </div>
@@ -107,7 +107,7 @@ Figure 8: Tag with Circular Antenna
 The current motor in our turbine design can produce around 12V when spun in ideal condition as seen in Figure 9.  
 
 <div align="center">
-<img src="Media/Oscope.png" alt="Reader Schemitic" width="229" height="256" style="transform: rotate(45deg);">
+<img src="Media/Oscope.png" alt="Reader Schemitic" width="300" style="transform: rotate(45deg);">
 
 Figure 9: Oscilloscope Readings 
 </div>
@@ -115,10 +115,11 @@ Figure 9: Oscilloscope Readings
 To determine the amount of power that needed to be generated the power consumption of the read was measured at different dB output. The results of the this testing can be seen in Figure 10. The general operating range of this device is between  20-27 dB which means that on average  it will be consuming between 2-2.85 watts. This means that having the power completed provided my the turbine is impractical. To compensate for this battery options were evaluated.
 
 <div align="center">
-<img src="Media/ReaderpowerPlot.png" alt="Reader Schemitic" width="350" style="transform: rotate(45deg);">
-</div>
+<img src="Media/ReaderpowerPlot.png" alt="Reader Schemitic" width="400" style="transform: rotate(45deg);">
+
 
 Figure 10: Read Power Consumption based on Output dB
+</div>
 
 The first battery option evaluated was a car battery that would be left at the stationary site to supplement the turbine. Assuming a car battery of 12.8V and 60 Ahr it can be determined that there 786 Whr. Assuming that there is 90% efficiency in the step down to operating voltage and that the battery should not be operated below 50%, as recommended for lead acid batterying the device could be powered for 3.83 days straight. 
 
