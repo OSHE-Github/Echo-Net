@@ -21,7 +21,7 @@ Their current strategy for tracking the bats is color tags which are attached to
 To start the design a general block diagram of the system was laid out as seen in Figure 2. This system has three main sections, one of which was manually focused on this semester in the data. The power system was also evaluated, and the interrupt system was left for future semesters.
 
 <div align="center">
-<img src="Media/systemBlockDiagram.png" alt="System Block Diagram for Reader" width="400" style="transform: rotate(45deg);">
+<img src="Media/systemBlockDiagram.png" alt="System Block Diagram for Reader" width="450" style="transform: rotate(45deg);">
 
 Figure 2: System Block Diagram for Reader
 </div>
@@ -53,7 +53,7 @@ For the microcontroller of our project we used an Arduino Nano. We chose to use 
 The rest of the reader design consisted of a logic level shifter and a SD card module. The level shifter allows for the 5V logic of the Arduino to be shifted to the 3.3V of the SparkFun M7E Hecto board. The SD card was used to store the data that was collected by the device for later data manipulation. A full schematic over our design can be seen in Figure 3.
 
 <div align="center">
-<img src="Media/readerSchemitic.png" alt="Reader Schemitic" width="350" style="transform: rotate(45deg);">
+<img src="Media/readerSchemitic.png" alt="Reader Schemitic" width="400" style="transform: rotate(45deg);">
 
 Figure 3: Reader Schematic
 </div>
