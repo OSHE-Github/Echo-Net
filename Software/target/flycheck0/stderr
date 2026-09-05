@@ -1,8 +1,10 @@
-   0.777117400s  INFO prepare_target{force=false package_id=echo-net-sw v0.1.0 (C:\EchoNet\Echo-Net\Software) target="echo-net-sw"}: cargo::core::compiler::fingerprint: dependency on `build_script_build` is newer than we are 13433023993.878492500s > 13433022448.147141800s "C:\\EchoNet\\Echo-Net\\Software"
-   0.778300700s  INFO prepare_target{force=false package_id=echo-net-sw v0.1.0 (C:\EchoNet\Echo-Net\Software) target="echo-net-sw"}: cargo::core::compiler::fingerprint: fingerprint dirty for echo-net-sw v0.1.0 (C:\EchoNet\Echo-Net\Software)/Check { test: false }/TargetInner { name: "echo-net-sw", doc: true, ..: with_path("C:\\EchoNet\\Echo-Net\\Software\\src\\main.rs", Edition2024) }
-   0.778355800s  INFO prepare_target{force=false package_id=echo-net-sw v0.1.0 (C:\EchoNet\Echo-Net\Software) target="echo-net-sw"}: cargo::core::compiler::fingerprint:     dirty: UnitDependencyInfoChanged { unit: UnitIndex(22) }
-   0.909348100s  INFO prepare_target{force=false package_id=echo-net-sw v0.1.0 (C:\EchoNet\Echo-Net\Software) target="echo-net-sw"}: cargo::core::compiler::fingerprint: fingerprint error for echo-net-sw v0.1.0 (C:\EchoNet\Echo-Net\Software)/Check { test: true }/TargetInner { name: "echo-net-sw", doc: true, ..: with_path("C:\\EchoNet\\Echo-Net\\Software\\src\\main.rs", Edition2024) }
-   0.909410100s  INFO prepare_target{force=false package_id=echo-net-sw v0.1.0 (C:\EchoNet\Echo-Net\Software) target="echo-net-sw"}: cargo::core::compiler::fingerprint:     err: failed to read `C:\EchoNet\Echo-Net\Software\target\xtensa-esp32s3-none-elf\debug\.fingerprint\echo-net-sw-3f97ef7fc564795b\test-bin-echo-net-sw`
+   0.933067500s  INFO prepare_target{force=false package_id=echo-net-sw v0.1.0 (C:\EchoNet\Echo-Net\Software) target="echo-net-sw"}: cargo::core::compiler::fingerprint: dependency on `build_script_build` is newer than we are 13433097358.542022600s > 13433022448.147141800s "C:\\EchoNet\\Echo-Net\\Software"
+   0.934512100s  INFO prepare_target{force=false package_id=echo-net-sw v0.1.0 (C:\EchoNet\Echo-Net\Software) target="echo-net-sw"}: cargo::core::compiler::fingerprint: fingerprint dirty for echo-net-sw v0.1.0 (C:\EchoNet\Echo-Net\Software)/Check { test: false }/TargetInner { name: "echo-net-sw", doc: true, ..: with_path("C:\\EchoNet\\Echo-Net\\Software\\src\\main.rs", Edition2024) }
+   0.935044400s  INFO prepare_target{force=false package_id=echo-net-sw v0.1.0 (C:\EchoNet\Echo-Net\Software) target="echo-net-sw"}: cargo::core::compiler::fingerprint:     dirty: UnitDependencyInfoChanged { unit: UnitIndex(22) }
+   0.949236000s  INFO prepare_target{force=false package_id=echo-net-sw v0.1.0 (C:\EchoNet\Echo-Net\Software) target="build-script-build"}: cargo::core::compiler::fingerprint: fingerprint dirty for echo-net-sw v0.1.0 (C:\EchoNet\Echo-Net\Software)/RunCustomBuild/TargetInner { ..: custom_build_target("build-script-build", "C:\\EchoNet\\Echo-Net\\Software\\build.rs", Edition2024) }
+   0.949288300s  INFO prepare_target{force=false package_id=echo-net-sw v0.1.0 (C:\EchoNet\Echo-Net\Software) target="build-script-build"}: cargo::core::compiler::fingerprint:     dirty: PrecalculatedComponentsChanged { old: "13433097067.653733400s (target/flycheck0/stderr)", new: "13433097367.598532300s (target/flycheck0/stderr)" }
+   1.053526300s  INFO prepare_target{force=false package_id=echo-net-sw v0.1.0 (C:\EchoNet\Echo-Net\Software) target="echo-net-sw"}: cargo::core::compiler::fingerprint: fingerprint error for echo-net-sw v0.1.0 (C:\EchoNet\Echo-Net\Software)/Check { test: true }/TargetInner { name: "echo-net-sw", doc: true, ..: with_path("C:\\EchoNet\\Echo-Net\\Software\\src\\main.rs", Edition2024) }
+   1.053614100s  INFO prepare_target{force=false package_id=echo-net-sw v0.1.0 (C:\EchoNet\Echo-Net\Software) target="echo-net-sw"}: cargo::core::compiler::fingerprint:     err: failed to read `C:\EchoNet\Echo-Net\Software\target\xtensa-esp32s3-none-elf\debug\.fingerprint\echo-net-sw-3f97ef7fc564795b\test-bin-echo-net-sw`
 
 Caused by:
     The system cannot find the file specified. (os error 2)
@@ -29,7 +31,7 @@ Stack backtrace:
   18: git_midx_writer_new
   19: BaseThreadInitThunk
   20: RtlUserThreadStart
-    Checking echo-net-sw v0.1.0 (C:\EchoNet\Echo-Net\Software)
+   Compiling echo-net-sw v0.1.0 (C:\EchoNet\Echo-Net\Software)
 error: could not compile `echo-net-sw` (bin "echo-net-sw") due to 2 previous errors; 8 warnings emitted
 warning: build failed, waiting for other jobs to finish...
 error: could not compile `echo-net-sw` (bin "echo-net-sw" test) due to 3 previous errors; 8 warnings emitted

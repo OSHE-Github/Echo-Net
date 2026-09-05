@@ -1,2 +1,2 @@
-cargo:rustc-link-arg=-Wl,--error-handling-script=C:\EchoNet\software_repository\echo-net-sw\target\debug\build\echo-net-sw-a059102b7d720f90\build-script-build.exe
+cargo:rustc-link-arg=-Wl,--error-handling-script=C:\EchoNet\Echo-Net\Software\target\debug\build\echo-net-sw-a059102b7d720f90\build-script-build.exe
 cargo:rustc-link-arg=-Tlinkall.x
