@@ -1,0 +1,10 @@
+C:\EchoNet\software_repository\echo-net-sw\target\xtensa-esp32s3-none-elf\debug\deps\xtensa_lx-9eb6d26b126581ef.d: C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\xtensa-lx-0.13.0\src\lib.rs C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\xtensa-lx-0.13.0\src\interrupt.rs C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\xtensa-lx-0.13.0\src\timer.rs C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\xtensa-lx-0.13.0\src\macros.rs
+
+C:\EchoNet\software_repository\echo-net-sw\target\xtensa-esp32s3-none-elf\debug\deps\libxtensa_lx-9eb6d26b126581ef.rlib: C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\xtensa-lx-0.13.0\src\lib.rs C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\xtensa-lx-0.13.0\src\interrupt.rs C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\xtensa-lx-0.13.0\src\timer.rs C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\xtensa-lx-0.13.0\src\macros.rs
+
+C:\EchoNet\software_repository\echo-net-sw\target\xtensa-esp32s3-none-elf\debug\deps\libxtensa_lx-9eb6d26b126581ef.rmeta: C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\xtensa-lx-0.13.0\src\lib.rs C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\xtensa-lx-0.13.0\src\interrupt.rs C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\xtensa-lx-0.13.0\src\timer.rs C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\xtensa-lx-0.13.0\src\macros.rs
+
+C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\xtensa-lx-0.13.0\src\lib.rs:
+C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\xtensa-lx-0.13.0\src\interrupt.rs:
+C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\xtensa-lx-0.13.0\src\timer.rs:
+C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\xtensa-lx-0.13.0\src\macros.rs:

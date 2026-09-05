@@ -1,0 +1,1 @@
+cargo:warning=synopsys-usb-otg is being compiled in debug mode. This driver works reliably only in release mode!

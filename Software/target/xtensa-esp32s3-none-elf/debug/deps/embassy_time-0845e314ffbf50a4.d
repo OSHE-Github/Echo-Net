@@ -1,0 +1,11 @@
+C:\EchoNet\software_repository\echo-net-sw\target\xtensa-esp32s3-none-elf\debug\deps\embassy_time-0845e314ffbf50a4.d: C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\embassy-time-0.5.1\src\lib.rs C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\embassy-time-0.5.1\src\fmt.rs C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\embassy-time-0.5.1\src\delay.rs C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\embassy-time-0.5.1\src\duration.rs C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\embassy-time-0.5.1\src\instant.rs C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\embassy-time-0.5.1\src\timer.rs C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\embassy-time-0.5.1\src\../README.md
+
+C:\EchoNet\software_repository\echo-net-sw\target\xtensa-esp32s3-none-elf\debug\deps\libembassy_time-0845e314ffbf50a4.rmeta: C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\embassy-time-0.5.1\src\lib.rs C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\embassy-time-0.5.1\src\fmt.rs C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\embassy-time-0.5.1\src\delay.rs C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\embassy-time-0.5.1\src\duration.rs C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\embassy-time-0.5.1\src\instant.rs C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\embassy-time-0.5.1\src\timer.rs C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\embassy-time-0.5.1\src\../README.md
+
+C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\embassy-time-0.5.1\src\lib.rs:
+C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\embassy-time-0.5.1\src\fmt.rs:
+C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\embassy-time-0.5.1\src\delay.rs:
+C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\embassy-time-0.5.1\src\duration.rs:
+C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\embassy-time-0.5.1\src\instant.rs:
+C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\embassy-time-0.5.1\src\timer.rs:
+C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\embassy-time-0.5.1\src\../README.md:

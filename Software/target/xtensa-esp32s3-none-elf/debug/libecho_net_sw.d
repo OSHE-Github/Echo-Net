@@ -1,0 +1,1 @@
+C:\EchoNet\software_repository\echo-net-sw\target\xtensa-esp32s3-none-elf\debug\libecho_net_sw.rlib: C:\EchoNet\software_repository\echo-net-sw\build.rs C:\EchoNet\software_repository\echo-net-sw\src\lib.rs
