@@ -1,3 +1,3 @@
-cargo:rustc-link-search=C:\Users\jakec\OneDrive\Desktop\EchoNet\software_repository\echo-net-sw\target\xtensa-esp32s3-none-elf\debug\build\esp32s3-48021429e54649da\out
+cargo:rustc-link-search=C:\Users\jakec\Desktop\EchoNet\Echo-Net\Software\target\xtensa-esp32s3-none-elf\debug\build\esp32s3-48021429e54649da\out
 cargo:rerun-if-changed=device.x
 cargo:rerun-if-changed=build.rs

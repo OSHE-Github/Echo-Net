@@ -690,7 +690,7 @@ cargo:rustc-cfg=uart_ram_size="128"
 cargo:rustc-cfg=uart_has_sclk_divider
 cargo:rustc-cfg=wifi_mac_version="1"
 cargo:rustc-cfg=wifi_csi_supported
-cargo:rustc-link-search=C:\Users\jakec\OneDrive\Desktop\EchoNet\software_repository\echo-net-sw\target\xtensa-esp32s3-none-elf\debug\build\esp-rom-sys-04da9e650a2f22cd\out
+cargo:rustc-link-search=C:\Users\jakec\Desktop\EchoNet\Echo-Net\Software\target\xtensa-esp32s3-none-elf\debug\build\esp-rom-sys-04da9e650a2f22cd\out
 cargo:rerun-if-changed=./ld/esp32s3/libesp_rom_sys.a
 cargo:rerun-if-changed=./ld/esp32s3/rom\additional.ld
 cargo:rerun-if-changed=./ld/esp32s3/rom\esp32s3.rom.api.ld

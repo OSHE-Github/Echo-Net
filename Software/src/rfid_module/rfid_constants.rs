@@ -35,10 +35,11 @@ pub(crate) const TMR_SR_OPCODE_SET_USER_GPIO_OUTPUTS: u8 = 0x96;
 pub(crate) const TMR_SR_OPCODE_SET_REGION: u8 = 0x97;
 pub(crate) const TMR_SR_OPCODE_SET_READER_OPTIONAL_PARAMS: u8 = 0x9A;
 pub(crate) const TMR_SR_OPCODE_SET_PROTOCOL_PARAM: u8 = 0x9B;
-pub(crate) const COMMAND_TIME_OUT: u8 = 2000; // Number of ms before stop waiting for response from module
+pub(crate) const COMMAND_TIME_OUT: u16 = 2000; // Number of ms before stop waiting for response from module
 
 // Define all the ways functions can return
-pub(crate) enum ReturnType {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ResponseError {
     AllGood,
     ErrorCommandResponseTimeout,
     ErrorCorruptResponse,
@@ -50,7 +51,7 @@ pub(crate) enum ReturnType {
     ResposneIsTagFound,
     ResponseIsNotAGFound,
     ResponseIsUnknown,
-    ResponseSuccess,
+    // ResponseSuccess,
     ResponseFail,
     ResponseIsHighReturnLoss,
 }
@@ -69,6 +70,7 @@ pub(crate) enum ReturnType {
 //     RegionNorthAmerica3,
 //     RegionOpen,
 // }
+
 pub(crate) const REGION_NORTHAMERICA: u8 = 0x01;
 pub(crate) const REGION_INDIA: u8 = 0x04;
 pub(crate) const REGION_JAPAN: u8 = 0x05;
@@ -85,3 +87,8 @@ enum PinMode {
     INPUT,
     OUPUT,
 }
+
+pub(crate) const CRC_TABLE: [u16; 16] = [
+    0x0000, 0x1021, 0x2042, 0x3063, 0x4084, 0x50a5, 0x60c6, 0x70e7, 0x8108, 0x9129, 0xa14a, 0xb16b,
+    0xc18c, 0xd1ad, 0xe1ce, 0xf1ef,
+];

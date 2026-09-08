@@ -778,7 +778,7 @@ cargo:rustc-check-cfg=cfg(use_rwdata_ld_hook)
 cargo:rustc-env=ESP_HAL_CONFIG_USE_RWTEXT_LD_HOOK=false
 cargo:rerun-if-env-changed=ESP_HAL_CONFIG_USE_RWTEXT_LD_HOOK
 cargo:rustc-check-cfg=cfg(use_rwtext_ld_hook)
-cargo:rustc-link-search=C:\EchoNet\software_repository\echo-net-sw\target\xtensa-esp32s3-none-elf\debug\build\esp-hal-c57fd6488718d128\out
+cargo:rustc-link-search=C:\Users\jakec\Desktop\EchoNet\Echo-Net\Software\target\xtensa-esp32s3-none-elf\debug\build\esp-hal-c57fd6488718d128\out
 cargo:rerun-if-changed=ld/sections\dram2.x
 cargo:rerun-if-changed=ld/sections\eh_frame.x
 cargo:rerun-if-changed=ld/sections\fixups\rtc_fast_rwdata_dummy.x

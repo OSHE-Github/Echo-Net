@@ -1,6 +1,6 @@
 cargo::rustc-check-cfg=cfg(embedded_test)
-cargo::rustc-env=ESP_BOOTLOADER_BUILD_TIME=18:46:08
-cargo::rustc-env=ESP_BOOTLOADER_BUILD_DATE=2026-09-04
+cargo::rustc-env=ESP_BOOTLOADER_BUILD_TIME=16:17:09
+cargo::rustc-env=ESP_BOOTLOADER_BUILD_DATE=2026-09-05
 cargo:rerun-if-changed=./esp_config.yml
 cargo:rerun-if-changed=build.rs
 cargo:rustc-env=ESP_BOOTLOADER_ESP_IDF_CONFIG_MMU_PAGE_SIZE=64k
