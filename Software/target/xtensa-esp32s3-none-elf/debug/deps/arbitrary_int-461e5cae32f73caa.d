@@ -1,0 +1,10 @@
+C:\EchoNet\Echo-Net\Software\target\xtensa-esp32s3-none-elf\debug\deps\arbitrary_int-461e5cae32f73caa.d: C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\arbitrary-int-2.2.0\src\lib.rs C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\arbitrary-int-2.2.0\src\common.rs C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\arbitrary-int-2.2.0\src\signed.rs C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\arbitrary-int-2.2.0\src\traits.rs C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\arbitrary-int-2.2.0\src\unsigned.rs C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\arbitrary-int-2.2.0\src\v1_number_compat.rs
+
+C:\EchoNet\Echo-Net\Software\target\xtensa-esp32s3-none-elf\debug\deps\libarbitrary_int-461e5cae32f73caa.rmeta: C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\arbitrary-int-2.2.0\src\lib.rs C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\arbitrary-int-2.2.0\src\common.rs C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\arbitrary-int-2.2.0\src\signed.rs C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\arbitrary-int-2.2.0\src\traits.rs C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\arbitrary-int-2.2.0\src\unsigned.rs C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\arbitrary-int-2.2.0\src\v1_number_compat.rs
+
+C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\arbitrary-int-2.2.0\src\lib.rs:
+C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\arbitrary-int-2.2.0\src\common.rs:
+C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\arbitrary-int-2.2.0\src\signed.rs:
+C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\arbitrary-int-2.2.0\src\traits.rs:
+C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\arbitrary-int-2.2.0\src\unsigned.rs:
+C:\Users\jakec\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\arbitrary-int-2.2.0\src\v1_number_compat.rs:

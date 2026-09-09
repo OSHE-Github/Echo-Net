@@ -1,0 +1,1 @@
+Result<ExclusiveDevice<esp_hal::spi::master::Spi<'_, Blocking>, _, Delay>, _>: embedded_hal::spi::SpiDevice

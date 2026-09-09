@@ -12,6 +12,9 @@ log                    = "0.4.27"
 
 critical-section = "1.2.0"
 esp-println      = { version = "0.17.0", features = ["esp32s3", "log-04"] }
+embedded-hal-bus = "0.3.0"
+embassy-time = "0.5.1"
+embedded-sdmmc = "0.10.0"
 
 
 # For fine tuning these settings, please refer to https://doc.rust-lang.org/cargo/reference/profiles.html
