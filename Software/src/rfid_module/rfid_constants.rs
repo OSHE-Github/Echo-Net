@@ -9,6 +9,8 @@ Licensed under the MIT License.
 
 */
 
+use crate::rfid_module::rfid_constants::PinMode::{INPUT, OUPUT};
+
 pub(crate) const MAX_MSG_SIZE: usize = 255;
 
 pub(crate) const TMR_SR_OPCODE_VERSION: u8 = 0x03;
@@ -83,9 +85,32 @@ pub(crate) const REGION_NORTHAMERICA2: u8 = 0x0D;
 pub(crate) const REGION_NORTHAMERICA3: u8 = 0x0E;
 pub(crate) const REGION_OPEN: u8 = 0xFF;
 
-enum PinMode {
+pub enum RFIDPinMode {
     INPUT,
     OUPUT,
+}
+
+pub enum RFIDPinState {
+    ON,
+    OFF,
+}
+
+pub fn get_pin_state(pin: u8) -> Option<RFIDPinState> {
+    match pin {
+        0 => Some(RFIDPinState::OFF),
+        1 => Some(RFIDPinState::ON),
+        // The pin is not a valid state
+        _ => None,
+    }
+}
+
+impl Into<u8> for RFIDPinMode {
+    fn into(self) -> u8 {
+        match self {
+            INPUT => 0u8,
+            OUPUT => 1u8,
+        }
+    }
 }
 
 pub(crate) const CRC_TABLE: [u16; 16] = [
