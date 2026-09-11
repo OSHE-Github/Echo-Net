@@ -16,12 +16,7 @@ use esp_hal::{
 };
 
 use crate::rfid_module::rfid_constants::{
-    COMMAND_TIME_OUT, CRC_TABLE, MAX_MSG_SIZE,
-    ResponseError::{self, AllGood, ResponseSuccess},
-    TMR_SR_OPCODE_GET_READER_OPTIONAL_PARAMS, TMR_SR_OPCODE_GET_WRITE_TX_POWER,
-    TMR_SR_OPCODE_KILL_TAG, TMR_SR_OPCODE_READ_TAG_DATA, TMR_SR_OPCODE_READ_TAG_ID_MULTIPLE,
-    TMR_SR_OPCODE_SET_READ_TX_POWER, TMR_SR_OPCODE_SET_READER_OPTIONAL_PARAMS,
-    TMR_SR_OPCODE_SET_WRITE_TX_POWER, TMR_SR_OPCODE_VERSION, TMR_SR_OPCODE_WRITE_TAG_DATA,
+    COMMAND_TIME_OUT, CRC_TABLE, MAX_MSG_SIZE, REGION_NORTHAMERICA, ResponseError, TMR_SR_OPCODE_GET_READ_TX_POWER, TMR_SR_OPCODE_GET_READER_OPTIONAL_PARAMS, TMR_SR_OPCODE_GET_WRITE_TX_POWER, TMR_SR_OPCODE_KILL_TAG, TMR_SR_OPCODE_READ_TAG_DATA, TMR_SR_OPCODE_READ_TAG_ID_MULTIPLE, TMR_SR_OPCODE_SET_ANTENNA_PORT, TMR_SR_OPCODE_SET_READ_TX_POWER, TMR_SR_OPCODE_SET_READER_OPTIONAL_PARAMS, TMR_SR_OPCODE_SET_TAG_PROTOCOL, TMR_SR_OPCODE_SET_WRITE_TX_POWER, TMR_SR_OPCODE_VERSION, TMR_SR_OPCODE_WRITE_TAG_DATA,
 };
 
 pub struct RFID {
@@ -59,9 +54,68 @@ impl RFID {
         // let size =
     }
 
+    // Given a region, set the correct freq
+    // 0x04 = IN
+    // 0x05 = JP
+    // 0x06 = PRC
+    // 0x08 = EU3
+    // 0x09 = KR2
+    // 0x0B = AU
+    // 0x0C = NZ
+    // 0x0D = NAS2 (North America)
+    // 0xFF = OPEN
+    pub fn set_region(&mut self, region: u8) {
+        self.send_message(TMR_SR_OPCODE_SET_REGION, &[region], todo!("just fix the fucking length man"), COMMAND_TIME_OUT, true);
+    } 
+
+    // Sets the TX and RX antenna ports to 01
+    // Because the Nano module has only one antenna port, it is not user configurable
+    pub fn set_antenna_port(&mut self) {
+        // TX port = 1, RX port = 1
+        let config_blob = [0x01, 0x01];
+
+        self.send_message(TMR_SR_OPCODE_SET_ANTENNA_PORT, &config_blob, u8::try_from(config_blob.len()).unwrap(), COMMAND_TIME_OUT, true);
+    }
+
+    // This was found in the logs. It seems to be very close to setAntennaPort
+    // Search serial_reader_l3.c for cmdSetAntennaSearchList for more info
+    pub fn set_antenna_search_list(&mut self) {
+        // Logical antenna list option, TX port = 1, RX port = 1
+        let config_blob = [0x02, 0x01, 0x01];
+
+        self.send_message(TMR_SR_OPCODE_SET_ANTENNA_PORT, &config_blob, u8::try_from(config_blob.len()).unwrap(), COMMAND_TIME_OUT, true);
+    }
+
+    // Sets the protocol of the module
+    // Currently only GEN2 has been tested and supported but others are listed here for reference
+    // and possible future support
+    // TMR_TAG_PROTOCOL_NONE              = 0x00
+    // TMR_TAG_PROTOCOL_ISO180006B        = 0x03
+    // TMR_TAG_PROTOCOL_GEN2              = 0x05
+    // TMR_TAG_PROTOCOL_ISO180006B_UCODE  = 0x06
+    // TMR_TAG_PROTOCOL_IPX64             = 0x07
+    // TMR_TAG_PROTOCOL_IPX256            = 0x08
+    // TMR_TAG_PROTOCOL_ATA               = 0x1D
+    pub fn set_tag_protocol(&mut self, protocol: u8) {
+        let data = [0u8, protocol];
+
+        self.send_message(TMR_SR_OPCODE_SET_TAG_PROTOCOL, &data, u8::try_from(data.len()).unwrap(), COMMAND_TIME_OUT, true);
+    }
+
+    pub fn enable_read_filter(&mut self) {
+        // Enable Read Filter
+        self.set_reader_configuration(0x0C, 0x01);
+    }
+
+    // Disabling the read filter allows continuous reading of tags
+    pub fn disable_read_filter(&mut self) {
+        // Disable Read Filter
+        self.set_reader_configuration(0x0C, 0x00);
+    }
+
     // Sends optional parameters to the module
     // See TMR_SR_Configuration in serial_reader_imp.h for a breakdown of options
-    pub fn set_read_configuration(&mut self, option1: u8, option2: u8) {
+    pub fn set_reader_configuration(&mut self, option1: u8, option2: u8) {
         let data = [1, option1, option2];
 
         self.send_message(
