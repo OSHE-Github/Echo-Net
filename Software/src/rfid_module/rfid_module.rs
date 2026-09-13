@@ -12,6 +12,7 @@ Licensed under the MIT License.
 use core::cmp::min;
 
 use esp_hal::{
+    delay::Delay,
     time::{Duration, Instant},
     uart::Uart,
 };
@@ -898,7 +899,9 @@ impl RFID {
                 self.response_error = Some(ResponseError::ErrorCommandResponseTimeout);
                 return;
             }
-            todo!("1ms sleep");
+            let delay = Delay::new();
+
+            delay.delay_millis(1);
         }
 
         message_length = MAX_MSG_SIZE - 1;
