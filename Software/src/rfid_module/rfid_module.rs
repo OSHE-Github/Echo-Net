@@ -1,5 +1,3 @@
-use core::{cmp::min, num::TryFromIntError};
-
 /*
 
 This code is based in part on the SparkFun Simultaneous RFID Tag Reader
@@ -10,18 +8,21 @@ Copyright (c) 2016 SparkFun Electronics
 Licensed under the MIT License.
 
 */
+
+use core::cmp::min;
+
 use esp_hal::{
     time::{Duration, Instant},
     uart::Uart,
 };
 
 use crate::rfid_module::rfid_constants::{
-    COMMAND_TIME_OUT, CRC_TABLE, MAX_MSG_SIZE, REGION_NORTHAMERICA, RFIDPinMode, RFIDPinState,
-    ResponseError, TMR_SR_OPCODE_GET_READ_TX_POWER, TMR_SR_OPCODE_GET_READER_OPTIONAL_PARAMS,
-    TMR_SR_OPCODE_GET_USER_GPIO_INPUTS, TMR_SR_OPCODE_GET_WRITE_TX_POWER, TMR_SR_OPCODE_KILL_TAG,
-    TMR_SR_OPCODE_MULTI_PROTOCOL_TAG_OP, TMR_SR_OPCODE_READ_TAG_DATA,
-    TMR_SR_OPCODE_READ_TAG_ID_MULTIPLE, TMR_SR_OPCODE_SET_ANTENNA_PORT,
-    TMR_SR_OPCODE_SET_BAUD_RATE, TMR_SR_OPCODE_SET_READ_TX_POWER,
+    COMMAND_TIME_OUT, CRC_TABLE, MAX_DATA_TO_RECORD, MAX_MSG_SIZE, MAX_PASSWORD_SIZE, RFIDPinMode,
+    RFIDPinState, Region, ResponseError, TMR_SR_OPCODE_GET_READ_TX_POWER,
+    TMR_SR_OPCODE_GET_READER_OPTIONAL_PARAMS, TMR_SR_OPCODE_GET_USER_GPIO_INPUTS,
+    TMR_SR_OPCODE_GET_WRITE_TX_POWER, TMR_SR_OPCODE_KILL_TAG, TMR_SR_OPCODE_MULTI_PROTOCOL_TAG_OP,
+    TMR_SR_OPCODE_READ_TAG_DATA, TMR_SR_OPCODE_READ_TAG_ID_MULTIPLE,
+    TMR_SR_OPCODE_SET_ANTENNA_PORT, TMR_SR_OPCODE_SET_BAUD_RATE, TMR_SR_OPCODE_SET_READ_TX_POWER,
     TMR_SR_OPCODE_SET_READER_OPTIONAL_PARAMS, TMR_SR_OPCODE_SET_REGION,
     TMR_SR_OPCODE_SET_TAG_PROTOCOL, TMR_SR_OPCODE_SET_USER_GPIO_OUTPUTS,
     TMR_SR_OPCODE_SET_WRITE_TX_POWER, TMR_SR_OPCODE_VERSION, TMR_SR_OPCODE_WRITE_TAG_DATA,
@@ -32,8 +33,7 @@ pub struct RFID {
     pub msg: [u8; MAX_MSG_SIZE],
     msg_head: usize,
     print_debug: bool,
-    // Temperary blocking
-    uart: Uart<'static, esp_hal::Blocking>,
+    pub uart: Uart<'static, esp_hal::Blocking>,
     debug_uart: Option<Uart<'static, esp_hal::Blocking>>,
     response_error: Option<ResponseError>,
 }
@@ -50,8 +50,12 @@ impl RFID {
         }
     }
 
-    // Enable or disable the printing of sent/response HEX values.
-    // Use this in conjunction with 'Transport Logging' from the Universal Reader Assistant to see what they're doing that we're not
+    pub fn get_response_error(&self) -> Option<ResponseError> {
+        self.response_error
+    }
+
+    /// Enable or disable the printing of sent/response HEX values.
+    /// Use this in conjunction with 'Transport Logging' from the Universal Reader Assistant to see what they're doing that we're not
     pub fn enable_debugging(&mut self, debug_uart: Uart<'static, esp_hal::Blocking>) {
         self.debug_uart = Some(debug_uart);
         self.print_debug = true;
@@ -62,18 +66,18 @@ impl RFID {
         self.print_debug = false;
     }
 
-    // Set baud rate
-    // Takes in a baud rate
-    // Returns response in the msg array
+    /// Set baud rate
+    /// Takes in a baud rate
+    /// Returns response in the msg array
     pub fn set_baudrate(&mut self, baudrate: u64) {
         let data = baudrate.to_be_bytes();
 
         self.send_message(TMR_SR_OPCODE_SET_BAUD_RATE, &data, COMMAND_TIME_OUT, false);
     }
 
-    // Begin scanning for tags
-    // There are many many options and features to the nano, this sets options
-    // for continuous read of GEN2 type tags
+    /// Begin scanning for tags
+    /// There are many many options and features to the nano, this sets options
+    /// for continuous read of GEN2 type tags
     pub fn start_reading(&mut self) {
         // Don't filter for a specific tag, read all tags
         self.disable_read_filter();
@@ -104,7 +108,7 @@ impl RFID {
         );
     }
 
-    // Stop a continous read
+    /// Stop a continous read
     pub fn stop_reading(&mut self) {
         // 00 00 = Timeout, currently ignored
         // 02 = Option - stop continuous reading
@@ -118,7 +122,7 @@ impl RFID {
         );
     }
 
-    // Set one of the GPIO pins as INPUT or OUTPUT
+    /// Set one of the GPIO pins as INPUT or OUTPUT
     pub fn pin_mode(&mut self, pin: u8, pin_mode: RFIDPinMode) {
         let data = [1, pin, pin_mode.into(), 0];
 
@@ -130,7 +134,7 @@ impl RFID {
         );
     }
 
-    // For a pin configured as an OUTPUT, this sets that pin state HIGH or LOW
+    /// For a pin configured as an OUTPUT, this sets that pin state HIGH or LOW
     pub fn digital_write(&mut self, pin: u8, state: u8) {
         let data = [pin, state];
 
@@ -142,7 +146,7 @@ impl RFID {
         );
     }
 
-    // For a pin cofigured as an INPUT, this returns that pin's state (HIGH/LOW)
+    /// For a pin cofigured as an INPUT, this returns that pin's state (HIGH/LOW)
     pub fn digital_read(&mut self, pin: u8) -> Option<RFIDPinState> {
         // Send command to get current GPIO inputs, and wait for response
         let data = [1u8];
@@ -174,22 +178,27 @@ impl RFID {
         None
     }
 
-    // Given a region, set the correct freq
-    // 0x04 = IN
-    // 0x05 = JP
-    // 0x06 = PRC
-    // 0x08 = EU3
-    // 0x09 = KR2
-    // 0x0B = AU
-    // 0x0C = NZ
-    // 0x0D = NAS2 (North America)
-    // 0xFF = OPEN
-    pub fn set_region(&mut self, region: u8) {
-        self.send_message(TMR_SR_OPCODE_SET_REGION, &[region], COMMAND_TIME_OUT, true);
+    /// Given a region, set the correct freq
+    /// 0x04 = IN
+    /// 0x05 = JP
+    /// 0x06 = PRC
+    /// 0x08 = EU3
+    /// 0x09 = KR2
+    /// 0x0B = AU
+    /// 0x0C = NZ
+    /// 0x0D = NAS2 (North America)
+    /// 0xFF = OPEN
+    pub fn set_region(&mut self, region: Region) {
+        self.send_message(
+            TMR_SR_OPCODE_SET_REGION,
+            &[region.into()],
+            COMMAND_TIME_OUT,
+            true,
+        );
     }
 
-    // Sets the TX and RX antenna ports to 01
-    // Because the Nano module has only one antenna port, it is not user configurable
+    /// Sets the TX and RX antenna ports to 01
+    /// Because the Nano module has only one antenna port, it is not user configurable
     pub fn set_antenna_port(&mut self) {
         // TX port = 1, RX port = 1
         let config_blob = [0x01, 0x01];
@@ -202,8 +211,8 @@ impl RFID {
         );
     }
 
-    // This was found in the logs. It seems to be very close to setAntennaPort
-    // Search serial_reader_l3.c for cmdSetAntennaSearchList for more info
+    /// This was found in the logs. It seems to be very close to setAntennaPort
+    /// Search serial_reader_l3.c for cmdSetAntennaSearchList for more info
     pub fn set_antenna_search_list(&mut self) {
         // Logical antenna list option, TX port = 1, RX port = 1
         let config_blob = [0x02, 0x01, 0x01];
@@ -216,17 +225,18 @@ impl RFID {
         );
     }
 
-    // Sets the protocol of the module
-    // Currently only GEN2 has been tested and supported but others are listed here for reference
-    // and possible future support
-    // TMR_TAG_PROTOCOL_NONE              = 0x00
-    // TMR_TAG_PROTOCOL_ISO180006B        = 0x03
-    // TMR_TAG_PROTOCOL_GEN2              = 0x05
-    // TMR_TAG_PROTOCOL_ISO180006B_UCODE  = 0x06
-    // TMR_TAG_PROTOCOL_IPX64             = 0x07
-    // TMR_TAG_PROTOCOL_IPX256            = 0x08
-    // TMR_TAG_PROTOCOL_ATA               = 0x1D
-    pub fn set_tag_protocol(&mut self, protocol: u8) {
+    /// Sets the protocol of the module
+    /// Currently only GEN2 has been tested and supported but others are listed here for reference
+    /// and possible future support
+    /// TMR_TAG_PROTOCOL_NONE              = 0x00
+    /// TMR_TAG_PROTOCOL_ISO180006B        = 0x03
+    /// TMR_TAG_PROTOCOL_GEN2              = 0x05
+    /// TMR_TAG_PROTOCOL_ISO180006B_UCODE  = 0x06
+    /// TMR_TAG_PROTOCOL_IPX64             = 0x07
+    /// TMR_TAG_PROTOCOL_IPX256            = 0x08
+    /// TMR_TAG_PROTOCOL_ATA               = 0x1D
+    pub fn set_tag_protocol(&mut self, protocol: Option<u8>) {
+        let protocol = protocol.unwrap_or(0x05);
         let data = [0u8, protocol];
 
         self.send_message(
@@ -242,14 +252,14 @@ impl RFID {
         self.set_reader_configuration(0x0C, 0x01);
     }
 
-    // Disabling the read filter allows continuous reading of tags
+    /// Disabling the read filter allows continuous reading of tags
     pub fn disable_read_filter(&mut self) {
         // Disable Read Filter
         self.set_reader_configuration(0x0C, 0x00);
     }
 
-    // Sends optional parameters to the module
-    // See TMR_SR_Configuration in serial_reader_imp.h for a breakdown of options
+    /// Sends optional parameters to the module
+    /// See TMR_SR_Configuration in serial_reader_imp.h for a breakdown of options
     pub fn set_reader_configuration(&mut self, option1: u8, option2: u8) {
         let data = [1, option1, option2];
 
@@ -261,8 +271,8 @@ impl RFID {
         );
     }
 
-    // Gets optional parameters from the module
-    // We know only the blob and are not able to yet identify what each parameter does
+    /// Gets optional parameters from the module
+    /// We know only the blob and are not able to yet identify what each parameter does
     pub fn get_optional_parameters(&mut self, option1: u8, option2: u8) {
         // These are parameters gleaned from inspecting the 'Transport Logs' of the Universal Reader Assistant
         // During setup the software pings different options
@@ -276,17 +286,17 @@ impl RFID {
         );
     }
 
-    //Get the version number from the module
+    /// Get the version number from the module
     pub fn get_version(&mut self) {
         self.send_message(TMR_SR_OPCODE_VERSION, &[], COMMAND_TIME_OUT, true);
     }
 
-    // Set the read TX power
-    // Maximum power is 2700 = 27.00 dBm
-    // 1005 = 10.05dBm
-    pub fn set_read_power(&mut self, mut power_setting: u16) {
+    /// Set the read TX power
+    /// Maximum power is 2700 = 27.00 dBm
+    /// 1005 = 10.05dBm
+    pub fn set_read_power(&mut self, power_setting: u16) {
         // Limit to 27d8m
-        power_setting.clamp(power_setting, 2700);
+        let power_setting = power_setting.clamp(power_setting, 2700);
 
         // Copy this setting into a temp data array
         let data = power_setting.to_be_bytes();
@@ -299,7 +309,7 @@ impl RFID {
         );
     }
 
-    // Get the read TX power
+    /// Get the read TX power
     pub fn get_read_power(&mut self) {
         let data = [0x00u8];
 
@@ -311,9 +321,9 @@ impl RFID {
         );
     }
 
-    // Set the write power
-    // Maximum power is 2700 = 27.00 dBm
-    // 1005 = 10.05dBm
+    /// Set the write power
+    /// Maximum power is 2700 = 27.00 dBm
+    /// 1005 = 10.05dBm
     pub fn set_write_power(&mut self, power_setting: u16) {
         let data = power_setting.to_be_bytes();
 
@@ -325,7 +335,7 @@ impl RFID {
         );
     }
 
-    // Get the write TX power
+    /// Get the write TX power
     pub fn get_write_power(&mut self) {
         let data = [0x00u8];
 
@@ -337,8 +347,8 @@ impl RFID {
         );
     }
 
-    // Read a single EPC
-    // Caller must provide an array for EPC to be stored in
+    /// Read a single EPC
+    /// Caller must provide an array for EPC to be stored in
     pub fn read_tag_epc(&mut self, epc: &mut [u8], time_out: u16) -> Result<usize, ResponseError> {
         // User data bank
         let bank = 0x011;
@@ -348,20 +358,19 @@ impl RFID {
         self.read_data(bank, address, epc, time_out)
     }
 
-    // This writes a new EPC to the first tag it detects
-    // Use with caution. This function doesn't control which tag hears the command.
+    /// This writes a new EPC to the first tag it detects
+    /// Use with caution. This function doesn't control which tag hears the command.
     pub fn write_tag_epc(&mut self, new_id: &mut [u8], time_out: u16) -> Result<(), ResponseError> {
-        todo!("new_id might need to be a &mut [char] or some other data type");
         // EPC memory
         let bank = 0x01;
         // EPC starts at spot 4
         let address = 0x02;
 
-        self.write_data(bank, address, new_id, time_out);
+        self.write_data(bank, address, new_id, time_out)
     }
 
-    // This reads the user data area of the tag. 0 to 64 bytes are normally available.
-    // Use with caution. The module can't control which tag hears the command.
+    /// This reads the user data area of the tag. 0 to 64 bytes are normally available.
+    /// Use with caution. The module can't control which tag hears the command.
     pub fn read_user_data(
         &mut self,
         user_data: &mut [u8],
@@ -375,9 +384,9 @@ impl RFID {
         self.read_data(bank, address, user_data, time_out)
     }
 
-    // This writes data to the tag. 0, 4, 16 or 64 bytes may be available.
-    // Writes to the first spot 0x00 and fills up as much of the bytes as user provides
-    // Use with caution. Function doesn't control which tag hears the command.
+    /// This writes data to the tag. 0, 4, 16 or 64 bytes may be available.
+    /// Writes to the first spot 0x00 and fills up as much of the bytes as user provides
+    /// Use with caution. Function doesn't control which tag hears the command.
     pub fn write_user_data(
         &mut self,
         user_data: &mut [u8],
@@ -390,7 +399,7 @@ impl RFID {
         self.write_data(bank, address, user_data, time_out)
     }
 
-    // Write the kill password. Should be 4 bytes long
+    /// Write the kill password. Should be 4 bytes long
     pub fn write_kill_pw(
         &mut self,
         password: &mut [u8],
@@ -404,7 +413,7 @@ impl RFID {
         self.write_data(bank, address, password, time_out)
     }
 
-    // Read the kill password. Should be 4 bytes long
+    /// Read the kill password. Should be 4 bytes long
     pub fn read_kill_rw(
         &mut self,
         password: &mut [u8],
@@ -418,7 +427,7 @@ impl RFID {
         self.read_data(bank, address, password, time_out)
     }
 
-    // Write the access password. Should be 4 bytes long
+    /// Write the access password. Should be 4 bytes long
     pub fn write_access_pw(
         &mut self,
         password: &mut [u8],
@@ -432,7 +441,7 @@ impl RFID {
         self.write_data(bank, address, password, time_out)
     }
 
-    // Read the access password. Should be 4 bytes long
+    /// Read the access password. Should be 4 bytes long
     pub fn read_access_pw(
         &mut self,
         password: &mut [u8],
@@ -446,10 +455,10 @@ impl RFID {
         self.read_data(bank, address, password, time_out)
     }
 
-    // Read the unique TID of the tag. Should be 20 bytes long
-    // This is a depricated function left in place in case users still use the readTID command
-    // This function is actually reading the UID. To read the TID, including the Chip Vendor
-    // change the address to 0x00.
+    /// Read the unique TID of the tag. Should be 20 bytes long
+    /// This is a depricated function left in place in case users still use the readTID command
+    /// This function is actually reading the UID. To read the TID, including the Chip Vendor
+    /// change the address to 0x00.
     pub fn read_tid(&mut self, tid: &mut [u8], time_out: u16) -> Result<usize, ResponseError> {
         // Bank for TID
         let bank = 0x02;
@@ -458,7 +467,7 @@ impl RFID {
         self.read_data(bank, address, tid, time_out)
     }
 
-    // Read the unique ID of the tag. Can vary from 0 to 20 or more bytes
+    /// Read the unique ID of the tag. Can vary from 0 to 20 or more bytes
     pub fn read_uid(&mut self, tid: &mut [u8], time_out: u16) -> Result<usize, ResponseError> {
         // Bank for TID
         let bank = 0x02;
@@ -468,8 +477,8 @@ impl RFID {
         self.read_data(bank, address, tid, time_out)
     }
 
-    // Writes a data array to a given bank and address
-    // Allows for writing of passwords and user data
+    /// Writes a data array to a given bank and address
+    /// Allows for writing of passwords and user data
     pub fn write_data(
         &mut self,
         bank: u8,
@@ -477,6 +486,9 @@ impl RFID {
         data_to_record: &mut [u8],
         time_out: u16,
     ) -> Result<(), ResponseError> {
+        if data_to_record.len() > MAX_DATA_TO_RECORD {
+            return Err(ResponseError::ErrorBufferLength);
+        }
         // Example: FF  0A  24  03  E8  00  00  00  00  00  03  00  EE  58  9D
         // FF 0A 24 = Header, LEN, Opcode
         // 03 E8 = Timeout in ms
@@ -485,7 +497,7 @@ impl RFID {
         // 03 = Bank
         // 00 EE = Data
         // 58 9D = CRC
-        let mut data = [0u8; 8 + data_to_record.len()];
+        let mut data = [0u8; 8 + MAX_DATA_TO_RECORD];
 
         // Insert timeout
         data[0..2].copy_from_slice(&time_out.to_be_bytes());
@@ -504,7 +516,12 @@ impl RFID {
 
         data[8..].copy_from_slice(&data_to_record);
 
-        self.send_message(TMR_SR_OPCODE_WRITE_TAG_DATA, data, time_out, true);
+        self.send_message(
+            TMR_SR_OPCODE_WRITE_TAG_DATA,
+            &data[0..(8 + data_to_record.len())],
+            time_out,
+            true,
+        );
 
         if self.response_error == Some(ResponseError::AllGood) {
             let status = u16::from_be_bytes([self.msg[3], self.msg[4]]);
@@ -518,8 +535,8 @@ impl RFID {
         Err(ResponseError::ResponseFail)
     }
 
-    // Reads a given bank and address to a data array
-    // Allows for writing of passwords and user data
+    /// Reads a given bank and address to a data array
+    /// Allows for writing of passwords and user data
     pub fn read_data(
         &mut self,
         bank: u8,
@@ -599,10 +616,16 @@ impl RFID {
         Err(ResponseError::ResponseFail)
     }
 
+    /// Send the appropriate command to permanently kill a tag. If the password does not
+    /// match the tag's pw it won't work. Default pw is 0x00000000
+    /// Use with caution. This function doesn't control which tag hears the command.
     pub fn kill_tag(&mut self, password: &[u8], time_out: u16) -> Result<(), ResponseError> {
+        if password.len() > MAX_PASSWORD_SIZE {
+            return Err(ResponseError::ErrorBufferLength);
+        }
         let [msb_timeout, lsb_timeout] = time_out.to_be_bytes();
 
-        let mut data = [0u8; 4 + password.len()];
+        let mut data = [0u8; 4 + MAX_PASSWORD_SIZE];
 
         // Timeout
         data[0] = msb_timeout;
@@ -617,7 +640,12 @@ impl RFID {
         // RFU
         data[3 + password.len()] = 0x00;
 
-        self.send_message(TMR_SR_OPCODE_KILL_TAG, &data, time_out, true);
+        self.send_message(
+            TMR_SR_OPCODE_KILL_TAG,
+            &data[0..(4 + password.len())],
+            time_out,
+            true,
+        );
 
         if self.response_error == Some(ResponseError::AllGood) {
             let status = u16::from_be_bytes([self.msg[3], self.msg[4]]);
@@ -630,6 +658,8 @@ impl RFID {
         Err(ResponseError::ResponseFail)
     }
 
+    /// Checks incoming buffer for the start characters
+    /// Returns true if a new message is complete and ready to be cracked
     pub fn check(&mut self) -> bool {
         let mut buf = [0u8; 1];
 
@@ -659,7 +689,7 @@ impl RFID {
                     if self.print_debug
                         && let Some(debug_uart) = self.debug_uart.as_mut()
                     {
-                        debug_uart.write(b"response: ");
+                        debug_uart.write(b"response: ").unwrap();
                         self.print_message_array();
                     }
                     return true;
@@ -670,7 +700,10 @@ impl RFID {
         false
     }
 
-    fn get_tag_epc_bytes(&self) -> u8 {
+    /// See parseResponse for breakdown of fields
+    /// Pulls the number of EPC bytes out of the response
+    /// Often this is 12 bytes
+    pub fn get_tag_epc_bytes(&self) -> u8 {
         let mut epcs_bits = 0;
 
         let tag_data_bytes = usize::from(self.get_tag_data_bytes());
@@ -684,13 +717,18 @@ impl RFID {
         u8::try_from(epc_bytes - 4).unwrap()
     }
 
-    fn get_tag_data_bytes(&self) -> u8 {
+    /// See parseResponse for breakdown of fields
+    /// Pulls the number of data bytes out of the response
+    /// Often this is zero
+    pub fn get_tag_data_bytes(&self) -> u8 {
         let tag_data_length = (u16::from(self.msg[24]) << 8) | u16::from(self.msg[25]);
 
         // If our data reading bits are messed up, we want to enter unrecoverable
         u8::try_from((tag_data_length + 7) / 8).unwrap()
     }
 
+    // See parseResponse for breakdown of fields
+    // Pulls the timestamp since last Keep-Alive message from a full response record stored in msg
     pub fn get_tag_time_stamp(&self) -> u16 {
         let mut time_stamp = 0;
 
@@ -701,6 +739,8 @@ impl RFID {
         u16::try_from(time_stamp).unwrap()
     }
 
+    // See parseResponse for breakdown of fields
+    // Pulls the frequency value from a full response record stored in msg
     pub fn get_tag_freq(&self) -> u32 {
         let mut freq = 0;
 
@@ -711,10 +751,14 @@ impl RFID {
         freq
     }
 
+    // See parseResponse for breakdown of fields
+    // Pulls the RSSI value from a full response record stored in msg
     pub fn get_tag_rssi(&self) -> i8 {
         i8::from_ne_bytes([self.msg[12]])
     }
 
+    // This will parse whatever response is currently in msg into its constituents
+    // Mostly used for parsing out the tag IDs and RSSI from a multi tag continuous read
     pub fn parse_response(&mut self) -> ResponseError {
         // Taken from original source:
 
@@ -759,10 +803,7 @@ impl RFID {
 
             //Based on the record length identify if this is a tag record, a temperature sensor record, or a keep-alive?
             if self.msg[1] == 0x00 {
-                let mut status_message = 0;
-                for x in 0..2usize {
-                    status_message |= self.msg[x + 3] << (8 * (1 - x));
-                }
+                let status_message = u16::from_be_bytes([self.msg[3], self.msg[4]]);
 
                 match status_message {
                     0x0400 => ResponseError::ResponseIsKeepAlive,
@@ -783,13 +824,14 @@ impl RFID {
             if self.print_debug
                 && let Some(debug_uart) = self.debug_uart.as_mut()
             {
-                debug_uart.write(b"Unknown opcode in response 0x");
+                debug_uart.write(b"Unknown opcode in response 0x").unwrap();
                 write_hex_byte(debug_uart, opcode);
             }
             ResponseError::ErrorUnknownOpcode
         }
     }
 
+    /// Given an opcode, a piece of data, and the size of that data, package up a sentence and send it
     fn send_message(&mut self, opcode: u8, data: &[u8], time_out: u16, wait_for_response: bool) {
         // Saturating conversion from usize to u8
         self.msg[1] = u8::try_from(data.len()).unwrap_or(u8::MAX);
@@ -804,6 +846,8 @@ impl RFID {
         self.send_command(time_out, wait_for_response);
     }
 
+    // Given an array, calc CRC, assign header, send it out
+    // Modifies the caller's msg array
     fn send_command(&mut self, time_out: u16, wait_for_response: bool) {
         // Universal header
         self.msg[0] = 0xFF;
@@ -821,7 +865,7 @@ impl RFID {
         if self.print_debug
             && let Some(debug_uart) = self.debug_uart.as_mut()
         {
-            debug_uart.write(b"send_command: ");
+            debug_uart.write(b"send_command: ").unwrap();
             self.print_message_array();
         }
 
@@ -832,11 +876,11 @@ impl RFID {
         }
 
         for x in 0..message_length + 5 {
-            self.uart.write(&[self.msg[x]]);
+            self.uart.write(&[self.msg[x]]).unwrap();
         }
 
         if !wait_for_response {
-            self.uart.flush();
+            self.uart.flush().unwrap();
             return;
         }
 
@@ -847,7 +891,9 @@ impl RFID {
                 if self.print_debug
                     && let Some(debug_uart) = self.debug_uart.as_mut()
                 {
-                    debug_uart.write(b"Time out 1: No response from module\r\n");
+                    debug_uart
+                        .write(b"Time out 1: No response from module\r\n")
+                        .unwrap();
                 }
                 self.response_error = Some(ResponseError::ErrorCommandResponseTimeout);
                 return;
@@ -864,7 +910,9 @@ impl RFID {
                 if self.print_debug
                     && let Some(debug_uart) = self.debug_uart.as_mut()
                 {
-                    debug_uart.write(b"Time out 2: No response from module\r\n");
+                    debug_uart
+                        .write(b"Time out 2: No response from module\r\n")
+                        .unwrap();
                 }
                 self.response_error = Some(ResponseError::ErrorCommandResponseTimeout);
                 return;
@@ -884,7 +932,7 @@ impl RFID {
         if self.print_debug
             && let Some(debug_uart) = self.debug_uart.as_mut()
         {
-            debug_uart.write(b"response: ");
+            debug_uart.write(b"response: ").unwrap();
             self.print_message_array();
         }
 
@@ -895,7 +943,7 @@ impl RFID {
             if self.print_debug
                 && let Some(debug_uart) = self.debug_uart.as_mut()
             {
-                debug_uart.write(b"Corrupt response");
+                debug_uart.write(b"Corrupt response").unwrap();
             }
             return;
         }
@@ -905,7 +953,7 @@ impl RFID {
             if self.print_debug
                 && let Some(debug_uart) = self.debug_uart.as_mut()
             {
-                debug_uart.write(b"Wrong opcode response");
+                debug_uart.write(b"Wrong opcode response").unwrap();
             }
             return;
         }
@@ -913,6 +961,7 @@ impl RFID {
         self.response_error = Some(ResponseError::AllGood);
     }
 
+    // Print the current message array - good for debugging, looking at how the module responded
     fn print_message_array(&mut self) {
         if self.print_debug
             && let Some(debug_uart) = self.debug_uart.as_mut()
@@ -920,23 +969,24 @@ impl RFID {
             let amount_to_print = (usize::from(self.msg[1]) + 5).min(MAX_MSG_SIZE);
 
             for x in 0..amount_to_print {
-                debug_uart.write(b" [");
+                debug_uart.write(b" [").unwrap();
 
                 let byte = self.msg[x];
 
                 if byte < 0x10 {
-                    debug_uart.write(b"0");
+                    debug_uart.write(b"0").unwrap();
                 }
 
                 write_hex_byte(debug_uart, byte);
-                debug_uart.write(b"]");
+                debug_uart.write(b"]").unwrap();
             }
 
-            debug_uart.write(b"\r\n");
+            debug_uart.write(b"\r\n").unwrap();
         }
     }
 }
 
+/// Calculates the magical CRC value
 fn calculate_crc(buf: &[u8], len: usize) -> u16 {
     let mut crc: u16 = 0xFFFF;
 
