@@ -10,8 +10,8 @@ use crate::rfid_module::{
 pub struct RfidData {
     pub baud_rate: u32,
     pub uart: esp_hal::peripherals::UART0<'static>,
-    pub rx: esp_hal::peripherals::GPIO1<'static>,
-    pub tx: esp_hal::peripherals::GPIO2<'static>,
+    pub rx: esp_hal::peripherals::GPIO5<'static>,
+    pub tx: esp_hal::peripherals::GPIO6<'static>,
 }
 
 #[embassy_executor::task]
@@ -25,16 +25,20 @@ pub async fn rfid_task(rfid_data: RfidData) {
     .await;
 
     let Ok(mut rfid) = setup_result else {
-        panic!("Module failed to respond, please check wiring.");
+        if let Err(response_error) = setup_result {
+            panic!("Module failed to respond, please check wiring {:?}.", response_error);
+        } else {
+            panic!("Unknown error!");
+        }
     };
 
     rfid.set_region(Region::NorthAmerica);
 
     // 5.00 dBm. Higher values may caues USB port to brown out
-    rfid.set_read_power(2700);
+    rfid.set_read_power(1000);
     // Max Read TX Power is 27.00 dBm and may cause temperature-limit throttling
 
-    println!("Modual connected! Constant scanning started.");
+    println!("Module connected! Constant scanning started.");
 
     rfid.start_reading();
 
@@ -69,7 +73,7 @@ pub async fn rfid_task(rfid_data: RfidData) {
                     todo!("Sd writing");
                 }
                 ResponseError::ErrorCorruptResponse => {
-                    println!("Bad src");
+                    println!("Bad crc");
                 }
                 ResponseError::ResponseIsHighReturnLoss => {
                     println!("High return loss, check antenna!");
@@ -87,8 +91,8 @@ pub async fn rfid_task(rfid_data: RfidData) {
 async fn setup_rfid_module(
     baud_rate: u32,
     uart: esp_hal::peripherals::UART0<'static>,
-    rx: esp_hal::peripherals::GPIO1<'static>,
-    tx: esp_hal::peripherals::GPIO2<'static>,
+    rx: esp_hal::peripherals::GPIO5<'static>,
+    tx: esp_hal::peripherals::GPIO6<'static>,
 ) -> Result<RFID, ResponseError> {
     let desired_config = Config::default().with_baudrate(baud_rate);
 
@@ -97,6 +101,7 @@ async fn setup_rfid_module(
         .with_rx(rx)
         .with_tx(tx);
     let mut rfid = RFID::new(rfid_uart);
+    Timer::after(embassy_time::Duration::from_millis(100)).await;
 
     let mut read_buf = [0u8; 1];
     // About 200ms from power on the module will send its firmware version at 115200. We need to ignore this.

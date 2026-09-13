@@ -12,6 +12,7 @@ use esp_hal::{clock::CpuClock, timer::timg::TimerGroup};
 pub mod rfid_module;
 pub mod rfid_task;
 
+use esp_println::println;
 use log::error;
 
 use crate::rfid_task::{RfidData, rfid_task};
@@ -39,6 +40,8 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
 
     esp_println::logger::init_logger_from_env();
 
+    println!("Booting up...");
+
     let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
     let peripherals: esp_hal::peripherals::Peripherals = esp_hal::init(config);
 
@@ -52,8 +55,8 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
     let rfid_data = RfidData {
         baud_rate: BAUD_RATE,
         uart: peripherals.UART0,
-        rx: peripherals.GPIO1,
-        tx: peripherals.GPIO2,
+        rx: peripherals.GPIO5,
+        tx: peripherals.GPIO6,
     };
 
     spawner.spawn(rfid_task(rfid_data).unwrap());

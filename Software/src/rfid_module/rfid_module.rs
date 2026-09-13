@@ -71,10 +71,15 @@ impl RFID {
     /// Takes in a baud rate
     /// Returns response in the msg array
     pub fn set_baudrate(&mut self, baudrate: u64) {
-        let data = baudrate.to_be_bytes();
+    let data = (baudrate as u32).to_be_bytes();
 
-        self.send_message(TMR_SR_OPCODE_SET_BAUD_RATE, &data, COMMAND_TIME_OUT, false);
-    }
+    self.send_message(
+        TMR_SR_OPCODE_SET_BAUD_RATE,
+        &data,
+        COMMAND_TIME_OUT,
+        false,
+    );
+}
 
     /// Begin scanning for tags
     /// There are many many options and features to the nano, this sets options
@@ -835,14 +840,10 @@ impl RFID {
     /// Given an opcode, a piece of data, and the size of that data, package up a sentence and send it
     fn send_message(&mut self, opcode: u8, data: &[u8], time_out: u16, wait_for_response: bool) {
         // Saturating conversion from usize to u8
-        self.msg[1] = u8::try_from(data.len()).unwrap_or(u8::MAX);
+        self.msg[1] = u8::try_from(data.len()).unwrap();
         self.msg[2] = opcode;
 
-        for x in 0..data.len() {
-            if let Some(data) = data.get(x) {
-                self.msg[x + 3] = *data;
-            }
-        }
+        self.msg[3..3 + data.len()].copy_from_slice(data);
 
         self.send_command(time_out, wait_for_response);
     }
@@ -941,7 +942,7 @@ impl RFID {
 
         crc = calculate_crc(&self.msg[1..], message_length - 3);
         let [msb_crc, lsb_crc] = crc.to_be_bytes();
-        if self.msg[message_length - 2] != msb_crc || self.msg[message_length] != lsb_crc {
+        if self.msg[message_length - 2] != msb_crc || self.msg[message_length - 1] != lsb_crc {
             self.response_error = Some(ResponseError::ErrorCorruptResponse);
             if self.print_debug
                 && let Some(debug_uart) = self.debug_uart.as_mut()
