@@ -1,3 +1,4 @@
+use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::{Channel, Sender}};
 use embassy_time::Timer;
 use esp_hal::uart::{Config, Uart};
 use esp_println::println;
@@ -7,15 +8,20 @@ use crate::rfid_module::{
     rfid_module::RFID,
 };
 
-pub struct RfidData {
+pub struct RfidInitData {
     pub baud_rate: u32,
     pub uart: esp_hal::peripherals::UART0<'static>,
     pub rx: esp_hal::peripherals::GPIO5<'static>,
     pub tx: esp_hal::peripherals::GPIO6<'static>,
 }
 
+pub struct RFIDData {}
+
+// Contains data read by the RFID library
+pub static RFID_CHANNEL: Channel<CriticalSectionRawMutex, RFIDData, 8> = Channel::new();
+
 #[embassy_executor::task]
-pub async fn rfid_task(rfid_data: RfidData) {
+pub async fn rfid_task(rfid_data: RfidInitData, rfid_channel: Sender<'static, CriticalSectionRawMutex, RFIDData, 8>) {
     let setup_result = setup_rfid_module(
         rfid_data.baud_rate,
         rfid_data.uart,
@@ -143,3 +149,4 @@ async fn setup_rfid_module(
         None => Err(ResponseError::ResponseIsUnknown),
     }
 }
+

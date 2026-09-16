@@ -18,6 +18,9 @@ embassy-time = "0.5.0"
 log = "0.4.27"
 critical-section = "1.2.0"
 heapless = "0.9.3"
+embedded-sdmmc = "0.10.0"
+embedded-hal-bus = "0.3.0"
+embassy-sync = "0.8.0"
 
 
 # For fine tuning these settings, please refer to https://doc.rust-lang.org/cargo/reference/profiles.html
