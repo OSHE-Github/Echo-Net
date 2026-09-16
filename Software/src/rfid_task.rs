@@ -24,12 +24,11 @@ pub async fn rfid_task(rfid_data: RfidData) {
     )
     .await;
 
-    let Ok(mut rfid) = setup_result else {
-        if let Err(response_error) = setup_result {
+    let mut rfid = match setup_result {
+        Ok(rfid) => rfid,
+        Err(response_error) => {
             panic!("Module failed to respond, please check wiring {:?}.", response_error);
-        } else {
-            panic!("Unknown error!");
-        }
+        },
     };
 
     rfid.set_region(Region::NorthAmerica);
@@ -70,6 +69,8 @@ pub async fn rfid_task(rfid_data: RfidData) {
                     #[allow(unused)]
                     let tag_epc_bytes = rfid.get_tag_epc_bytes();
 
+                    println!("rssi: {rssi}, freq: {freq}, time stamp: {time_stamp}, tag epc bytes: {tag_epc_bytes}");
+
                     todo!("Sd writing");
                 }
                 ResponseError::ErrorCorruptResponse => {
@@ -84,7 +85,7 @@ pub async fn rfid_task(rfid_data: RfidData) {
             }
         }
 
-        Timer::after_millis(500).await;
+        Timer::after_millis(50).await;
     }
 }
 

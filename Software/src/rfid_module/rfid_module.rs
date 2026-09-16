@@ -10,12 +10,14 @@ Licensed under the MIT License.
 */
 
 use core::cmp::min;
+use core::fmt::Write;
 
 use esp_hal::{
     delay::Delay,
     time::{Duration, Instant},
     uart::Uart,
 };
+use esp_println::println;
 
 use crate::rfid_module::rfid_constants::{
     COMMAND_TIME_OUT, CRC_TABLE, MAX_DATA_TO_RECORD, MAX_MSG_SIZE, MAX_PASSWORD_SIZE, RFIDPinMode,
@@ -35,7 +37,6 @@ pub struct RFID {
     msg_head: usize,
     print_debug: bool,
     pub uart: Uart<'static, esp_hal::Blocking>,
-    debug_uart: Option<Uart<'static, esp_hal::Blocking>>,
     response_error: Option<ResponseError>,
 }
 
@@ -46,7 +47,6 @@ impl RFID {
             msg_head: 0,
             print_debug: false,
             uart,
-            debug_uart: None,
             response_error: None,
         }
     }
@@ -57,8 +57,7 @@ impl RFID {
 
     /// Enable or disable the printing of sent/response HEX values.
     /// Use this in conjunction with 'Transport Logging' from the Universal Reader Assistant to see what they're doing that we're not
-    pub fn enable_debugging(&mut self, debug_uart: Uart<'static, esp_hal::Blocking>) {
-        self.debug_uart = Some(debug_uart);
+    pub fn enable_debugging(&mut self) {
         self.print_debug = true;
     }
 
@@ -667,39 +666,45 @@ impl RFID {
     /// Checks incoming buffer for the start characters
     /// Returns true if a new message is complete and ready to be cracked
     pub fn check(&mut self) -> bool {
-        let mut buf = [0u8; 1];
+        let mut buf = [0u8; 64];
 
         while self.uart.read_ready() {
-            self.uart.read(&mut buf).unwrap();
-
-            if self.msg_head == 0 && buf[0] != 0xFF {
-                // Ignore bytes because we need a start byte
-            } else {
-                self.msg[self.msg_head] = buf[0];
-                self.msg_head += 1;
-
-                self.msg_head %= MAX_MSG_SIZE;
-
-                if self.msg_head > 0 && self.msg_head == (usize::from(self.msg[1]) + 7) {
-                    // We have a complete sentence
-
-                    // Erase rest of array
-                    for x in self.msg_head..MAX_MSG_SIZE {
-                        self.msg[x] = 0;
-                    }
-
-                    // Reset
-                    self.msg_head = 0;
-
-                    // Used for debugging: Does the user want us to print the command to serial port?
-                    if self.print_debug
-                        && let Some(debug_uart) = self.debug_uart.as_mut()
-                    {
-                        debug_uart.write(b"response: ").unwrap();
-                        self.print_message_array();
-                    }
-                    return true;
+            
+            let bytes_read = match self.uart.read(&mut buf) {
+                Ok(n) => n,
+                Err(e) => {
+                    log::error!("RFID UART read error: {:?}", e);
+                    return false;
                 }
+            };
+
+            for &byte in &buf[..bytes_read] {
+                if self.msg_head == 0 && byte != 0xFF {
+                    // Ignore bytes because we need a start byte
+                } else {
+                    self.msg[self.msg_head] = byte;
+                    self.msg_head += 1;
+
+                    self.msg_head %= MAX_MSG_SIZE;
+
+                    if self.msg_head > 0 && self.msg_head == (usize::from(self.msg[1]) + 7) {
+                        // We have a complete sentence
+
+                        // Erase rest of array
+                        for x in self.msg_head..MAX_MSG_SIZE {
+                            self.msg[x] = 0;
+                        }
+
+                        // Reset
+                        self.msg_head = 0;
+
+                        // Used for debugging: Does the user want us to print the command to serial port?
+                        if self.print_debug {
+                            self.print_message_array();
+                        }
+                        return true;
+                    }
+                }            
             }
         }
 
@@ -827,11 +832,8 @@ impl RFID {
                 ResponseError::ResposneIsTagFound
             }
         } else {
-            if self.print_debug
-                && let Some(debug_uart) = self.debug_uart.as_mut()
-            {
-                debug_uart.write(b"Unknown opcode in response 0x").unwrap();
-                write_hex_byte(debug_uart, opcode);
+            if self.print_debug {
+                println!("Unknown opcode in response 0x{:?}", dec_to_hex(opcode));
             }
             ResponseError::ErrorUnknownOpcode
         }
@@ -864,10 +866,8 @@ impl RFID {
         self.msg[message_length + 3] = msb_crc;
         self.msg[message_length + 4] = lsb_crc;
 
-        if self.print_debug
-            && let Some(debug_uart) = self.debug_uart.as_mut()
-        {
-            debug_uart.write(b"send_command: ").unwrap();
+        if self.print_debug {
+            println!("send_command: ");
             self.print_message_array();
         }
 
@@ -890,12 +890,8 @@ impl RFID {
 
         while !self.uart.read_ready() {
             if start_time.elapsed() > Duration::from_millis(u64::from(time_out)) {
-                if self.print_debug
-                    && let Some(debug_uart) = self.debug_uart.as_mut()
-                {
-                    debug_uart
-                        .write(b"Time out 1: No response from module\r\n")
-                        .unwrap();
+                if self.print_debug {
+                    println!("Time out 1: No response from module");
                 }
                 self.response_error = Some(ResponseError::ErrorCommandResponseTimeout);
                 return;
@@ -911,32 +907,34 @@ impl RFID {
 
         while spot < message_length {
             if start_time.elapsed() > Duration::from_millis(u64::from(time_out)) {
-                if self.print_debug
-                    && let Some(debug_uart) = self.debug_uart.as_mut()
-                {
-                    debug_uart
-                        .write(b"Time out 2: No response from module\r\n")
-                        .unwrap();
+                if self.print_debug {
+                    println!("Time out 2: No response from module");
                 }
                 self.response_error = Some(ResponseError::ErrorCommandResponseTimeout);
                 return;
             }
 
             if self.uart.read_ready() {
-                self.uart.read(&mut buf).unwrap();
-                self.msg[spot] = buf[0];
-                if spot == 1 {
-                    message_length = usize::from(self.msg[1]) + 7;
-                }
+                match self.uart.read(&mut buf) {
+                    Ok(_) => {
+                    self.msg[spot] = buf[0];
 
-                spot += 1;
-                spot %= MAX_MSG_SIZE;
+                    if spot == 1 {
+                        message_length = usize::from(self.msg[1]) + 7;
+                    }
+
+                    spot += 1;
+                    spot %= MAX_MSG_SIZE;
+                }
+                    Err(e) => {
+                        // Handle UART error
+                        log::error!("UART read error: {:?}", e);
+                    }
+                }
             }
         }
-        if self.print_debug
-            && let Some(debug_uart) = self.debug_uart.as_mut()
-        {
-            debug_uart.write(b"response: ").unwrap();
+        if self.print_debug {
+            println!("response: ");
             self.print_message_array();
         }
 
@@ -944,20 +942,16 @@ impl RFID {
         let [msb_crc, lsb_crc] = crc.to_be_bytes();
         if self.msg[message_length - 2] != msb_crc || self.msg[message_length - 1] != lsb_crc {
             self.response_error = Some(ResponseError::ErrorCorruptResponse);
-            if self.print_debug
-                && let Some(debug_uart) = self.debug_uart.as_mut()
-            {
-                debug_uart.write(b"Corrupt response").unwrap();
+            if self.print_debug {
+                println!("Corrupt response");
             }
             return;
         }
 
         if self.msg[2] != opcode {
             self.response_error = Some(ResponseError::ErrorWrongOpcodeResponse);
-            if self.print_debug
-                && let Some(debug_uart) = self.debug_uart.as_mut()
-            {
-                debug_uart.write(b"Wrong opcode response").unwrap();
+            if self.print_debug {
+                println!("Wrong opcode response");
             }
             return;
         }
@@ -967,25 +961,17 @@ impl RFID {
 
     // Print the current message array - good for debugging, looking at how the module responded
     fn print_message_array(&mut self) {
-        if self.print_debug
-            && let Some(debug_uart) = self.debug_uart.as_mut()
-        {
-            let amount_to_print = (usize::from(self.msg[1]) + 5).min(MAX_MSG_SIZE);
+        if self.print_debug {
+            let amount_to_print =
+                (usize::from(self.msg[1]) + 5).min(MAX_MSG_SIZE);
+
+            let mut output = heapless::String::<512>::new();
 
             for x in 0..amount_to_print {
-                debug_uart.write(b" [").unwrap();
-
-                let byte = self.msg[x];
-
-                if byte < 0x10 {
-                    debug_uart.write(b"0").unwrap();
-                }
-
-                write_hex_byte(debug_uart, byte);
-                debug_uart.write(b"]").unwrap();
+                let _ = write!(output, " [{:02X}]", self.msg[x]);
             }
 
-            debug_uart.write(b"\r\n").unwrap();
+            println!("{}", output);
         }
     }
 }
@@ -1003,9 +989,9 @@ fn calculate_crc(buf: &[u8], len: usize) -> u16 {
     crc
 }
 
-fn write_hex_byte(uart: &mut Uart<'static, esp_hal::Blocking>, byte: u8) {
+fn dec_to_hex(byte: u8) -> [u8; 2] {
     let hex = b"0123456789ABCDEF";
     let chars = [hex[usize::from(byte >> 4)], hex[usize::from(byte & 0x0F)]];
 
-    let _ = uart.write(&chars);
+    chars
 }
