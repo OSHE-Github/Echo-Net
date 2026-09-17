@@ -1,4 +1,8 @@
-use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::{Channel, Sender}};
+use core::fmt::Write;
+use embassy_sync::{
+    blocking_mutex::raw::CriticalSectionRawMutex,
+    channel::{Channel, Sender},
+};
 use embassy_time::Timer;
 use esp_hal::uart::{Config, Uart};
 use esp_println::println;
@@ -15,13 +19,21 @@ pub struct RfidInitData {
     pub tx: esp_hal::peripherals::GPIO6<'static>,
 }
 
-pub struct RFIDData {}
+pub struct RFIDTag {
+    pub rssi: i8,
+    pub freq: u32,
+    pub time_stamp: u16,
+    pub epc_bytes: heapless::Vec<u8, 32>,
+}
 
 // Contains data read by the RFID library
-pub static RFID_CHANNEL: Channel<CriticalSectionRawMutex, RFIDData, 8> = Channel::new();
+pub static RFID_CHANNEL: Channel<CriticalSectionRawMutex, RFIDTag, 8> = Channel::new();
 
 #[embassy_executor::task]
-pub async fn rfid_task(rfid_data: RfidInitData, rfid_channel: Sender<'static, CriticalSectionRawMutex, RFIDData, 8>) {
+pub async fn rfid_task(
+    rfid_data: RfidInitData,
+    rfid_sender: Sender<'static, CriticalSectionRawMutex, RFIDTag, 8>,
+) {
     let setup_result = setup_rfid_module(
         rfid_data.baud_rate,
         rfid_data.uart,
@@ -33,8 +45,11 @@ pub async fn rfid_task(rfid_data: RfidInitData, rfid_channel: Sender<'static, Cr
     let mut rfid = match setup_result {
         Ok(rfid) => rfid,
         Err(response_error) => {
-            panic!("Module failed to respond, please check wiring {:?}.", response_error);
-        },
+            panic!(
+                "Module failed to respond, please check wiring {:?}.",
+                response_error
+            );
+        }
     };
 
     rfid.set_region(Region::NorthAmerica);
@@ -75,9 +90,31 @@ pub async fn rfid_task(rfid_data: RfidInitData, rfid_channel: Sender<'static, Cr
                     #[allow(unused)]
                     let tag_epc_bytes = rfid.get_tag_epc_bytes();
 
-                    println!("rssi: {rssi}, freq: {freq}, time stamp: {time_stamp}, tag epc bytes: {tag_epc_bytes}");
+                    println!(
+                        "rssi: {rssi}, freq: {freq}, time stamp: {time_stamp}, tag epc bytes: {tag_epc_bytes}"
+                    );
+                    let mut output = heapless::String::<128>::new();
+                    let mut epc_bytes = heapless::Vec::new();
 
-                    todo!("Sd writing");
+                    write!(output, " epc[").unwrap();
+
+                    for idx in 0..usize::from(tag_epc_bytes) {
+                        write!(output, "{:02X} ", rfid.msg[31 + idx]).unwrap();
+                        epc_bytes.push(rfid.msg[31 + idx]).unwrap();
+                    }
+
+                    write!(output, "]").unwrap();
+
+                    println!("{}", output);
+
+                    let rfid_tag = RFIDTag {
+                        rssi,
+                        freq,
+                        time_stamp,
+                        epc_bytes,
+                    };
+
+                    rfid_sender.send(rfid_tag).await;
                 }
                 ResponseError::ErrorCorruptResponse => {
                     println!("Bad crc");
@@ -149,4 +186,3 @@ async fn setup_rfid_module(
         None => Err(ResponseError::ResponseIsUnknown),
     }
 }
-

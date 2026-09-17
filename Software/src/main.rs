@@ -7,22 +7,28 @@
 )]
 #![deny(clippy::large_stack_frames)]
 
-use esp_hal::{
-    clock::CpuClock, timer::timg::TimerGroup, spi::{self, master::Spi}, time::Rate,
-};
 use embedded_hal_bus::spi::ExclusiveDevice;
 use embedded_sdmmc::{SdCard, VolumeManager};
+use esp_hal::{
+    clock::CpuClock,
+    spi::{self, master::Spi},
+    time::Rate,
+    timer::timg::TimerGroup,
+};
 
 pub mod rfid_module;
 pub mod rfid_task;
-pub mod time_source;
 pub mod sd_card_task;
+pub mod time_source;
 
 use esp_println::println;
 use log::error;
 
-use crate::{rfid_task::{RFID_CHANNEL, RfidInitData, rfid_task}, time_source::DummyTimeSource};
-
+use crate::{
+    rfid_task::{RFID_CHANNEL, RfidInitData, rfid_task},
+    sd_card_task::sd_card_task,
+    time_source::DummyTimeSource,
+};
 
 #[panic_handler]
 fn panic(panic_info: &core::panic::PanicInfo) -> ! {
@@ -67,15 +73,22 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
     };
 
     // SD card spi bus
-    let spi_bus = 
-            Spi::new(peripherals.SPI2, spi::master::Config::default()
+    let spi_bus = Spi::new(
+        peripherals.SPI2,
+        spi::master::Config::default()
             .with_frequency(Rate::from_mhz(1))
-            .with_mode(esp_hal::spi::Mode::_0)).unwrap()
-            .with_sck(peripherals.GPIO48)
-            .with_mosi(peripherals.GPIO38)
-            .with_miso(peripherals.GPIO47);
+            .with_mode(esp_hal::spi::Mode::_0),
+    )
+    .unwrap()
+    .with_sck(peripherals.GPIO48)
+    .with_mosi(peripherals.GPIO38)
+    .with_miso(peripherals.GPIO47);
 
-    let cs = esp_hal::gpio::Output::new(peripherals.GPIO21, esp_hal::gpio::Level::High, esp_hal::gpio::OutputConfig::default());
+    let cs = esp_hal::gpio::Output::new(
+        peripherals.GPIO21,
+        esp_hal::gpio::Level::High,
+        esp_hal::gpio::OutputConfig::default(),
+    );
 
     let spi_dev = ExclusiveDevice::new(spi_bus, cs, embassy_time::Delay).unwrap();
 
@@ -84,9 +97,9 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
     let volume_manager = VolumeManager::new(sd_card, DummyTimeSource);
 
     spawner.spawn(rfid_task(rfid_data, RFID_CHANNEL.sender()).unwrap());
+    spawner.spawn(sd_card_task(volume_manager, RFID_CHANNEL.receiver()).unwrap());
 
     loop {
         embassy_time::Timer::after_millis(500).await;
     }
 }
-
