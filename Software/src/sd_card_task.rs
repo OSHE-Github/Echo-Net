@@ -30,7 +30,7 @@ pub async fn sd_card_task(
     let echo_net_dir = match volume_manager.open_dir(root_dir, ECHO_NET_DIRECTORY) {
         Ok(dir) => dir,
         Err(_) => {
-            // If directory can't be opened, create it
+            // If directory can't be opened, create it first
             volume_manager
                 .make_dir_in_dir(root_dir, ECHO_NET_DIRECTORY)
                 .unwrap();
@@ -41,8 +41,10 @@ pub async fn sd_card_task(
     };
 
     let mut filename = heapless::String::<32>::new();
+    let mut filename_found = false;
 
-    for idx in 1..100 {
+    // Not really sure what our max amount of files should be. Previously a u8 was used so the max was 255.
+    for idx in 1..1000 {
         filename.clear();
         write!(filename, "log_{:02}.txt", idx).unwrap();
 
@@ -53,22 +55,33 @@ pub async fn sd_card_task(
             }
             Err(_) => {
                 // Doesn't exist, so this is our filename.
+                filename_found = true;
                 break;
             }
         }
     }
 
+    if !filename_found {
+        panic!("SD card full!");
+    }
+
     let file = volume_manager
         .open_file_in_dir(echo_net_dir, filename.as_str(), Mode::ReadWriteCreate)
         .unwrap();
-
+    // We can close the file now that we have it
     volume_manager.close_file(file).unwrap();
 
     println!("File created");
 
     loop {
         let rfid_data = rfid_data_reciever.receive().await;
-        let formatted_rfid_data = format_rfid_data(&rfid_data);
+        let log_entry = format_rfid_data(&rfid_data);
+        let file = volume_manager
+            .open_file_in_dir(echo_net_dir, filename.as_str(), Mode::ReadWriteAppend)
+            .unwrap()
+            .to_file(&volume_manager);
+        file.write(log_entry.as_bytes()).unwrap();
+        volume_manager.close_file(file.to_raw_file()).unwrap();
     }
 }
 

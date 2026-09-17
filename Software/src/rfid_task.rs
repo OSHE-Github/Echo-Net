@@ -73,21 +73,13 @@ pub async fn rfid_task(
                 ResponseError::ResposneIsTagFound => {
                     // If we have a full record we can pull out the fun bits
 
-                    /*
-                    The code below is unused because we don't save to the SD card yet
-                     */
-
                     // Get the RSSI for this tag read
-                    #[allow(unused)]
                     let rssi = rfid.get_tag_rssi();
                     // Get the frequency this tag was detected at
-                    #[allow(unused)]
                     let freq = rfid.get_tag_freq();
                     // Get the time this was read, (ms) since last keep-alive message
-                    #[allow(unused)]
                     let time_stamp = rfid.get_tag_time_stamp();
                     // Get the number of bytes of EPC from response
-                    #[allow(unused)]
                     let tag_epc_bytes = rfid.get_tag_epc_bytes();
 
                     println!(
