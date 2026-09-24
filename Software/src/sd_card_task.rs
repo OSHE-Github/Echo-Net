@@ -8,7 +8,7 @@ use esp_println::println;
 
 use crate::{rfid_task::RFIDTag, time_source::DummyTimeSource};
 
-const ECHO_NET_DIRECTORY: &'static str = "EchoNet";
+const ECHO_NET_DIRECTORY: &'static str = "ECHONET";
 
 #[embassy_executor::task]
 pub async fn sd_card_task(

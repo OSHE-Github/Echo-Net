@@ -73,10 +73,10 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
     };
 
     // SD card spi bus
-    let spi_bus = Spi::new(
+    let mut spi_bus = Spi::new(
         peripherals.SPI2,
         spi::master::Config::default()
-            .with_frequency(Rate::from_mhz(1))
+            .with_frequency(Rate::from_khz(300))
             .with_mode(esp_hal::spi::Mode::_0),
     )
     .unwrap()
@@ -84,13 +84,20 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
     .with_mosi(peripherals.GPIO38)
     .with_miso(peripherals.GPIO47);
 
-    let cs = esp_hal::gpio::Output::new(
+    let mut cs = esp_hal::gpio::Output::new(
         peripherals.GPIO21,
         esp_hal::gpio::Level::High,
         esp_hal::gpio::OutputConfig::default(),
     );
 
+    cs.set_high();
+
+    // 2. Create an array of 10 dummy bytes (all 1s)
+    let dummy_bytes: [u8; 10] = [0xFF; 10];
+    spi_bus.write(&dummy_bytes).unwrap();
+
     let spi_dev = ExclusiveDevice::new(spi_bus, cs, embassy_time::Delay).unwrap();
+
 
     let sd_card = SdCard::new(spi_dev, embassy_time::Delay);
 
