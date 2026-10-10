@@ -36,12 +36,12 @@ pub struct RFID {
     pub msg: [u8; MAX_MSG_SIZE],
     msg_head: usize,
     print_debug: bool,
-    pub uart: Uart<'static, esp_hal::Blocking>,
+    pub uart: Uart<'static, esp_hal::Async>,
     response_error: Option<ResponseError>,
 }
 
 impl RFID {
-    pub fn new(uart: Uart<'static, esp_hal::Blocking>) -> RFID {
+    pub fn new(uart: Uart<'static, esp_hal::Async>) -> RFID {
         Self {
             msg: [0; MAX_MSG_SIZE],
             msg_head: 0,
@@ -665,15 +665,23 @@ impl RFID {
 
     /// Checks incoming buffer for the start characters
     /// Returns true if a new message is complete and ready to be cracked
-    pub fn check(&mut self) -> bool {
+    pub async fn check(&mut self) -> bool {
         let mut buf = [0u8; 64];
+        let mut fifo_overflows = 0;
 
         while self.uart.read_ready() {
-            
-            let bytes_read = match self.uart.read(&mut buf) {
+            // Should fix FifoOverflow
+            let bytes_read = match self.uart.read_async(&mut buf).await {
                 Ok(n) => n,
                 Err(e) => {
-                    log::error!("RFID UART read error: {:?}", e);
+                    if e == esp_hal::uart::RxError::FifoOverflowed {
+                        fifo_overflows += 1;
+                        log::warn!("RFID FIFO overflow #{}", fifo_overflows);
+                    } else {
+                        log::error!("RFID UART read error: {:?}", e);
+                    }
+
+                    self.msg_head = 0;
                     return false;
                 }
             };

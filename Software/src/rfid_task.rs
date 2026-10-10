@@ -6,6 +6,7 @@ use embassy_sync::{
 use embassy_time::Timer;
 use esp_hal::uart::{Config, Uart};
 use esp_println::println;
+use log::info;
 
 use crate::rfid_module::{
     rfid_constants::{DEFAULT_BAUD_RATE, Region, ResponseError},
@@ -23,16 +24,33 @@ pub struct RFIDTag {
     pub rssi: i8,
     pub freq: u32,
     pub time_stamp: u16,
-    pub epc_bytes: heapless::Vec<u8, 32>,
+    pub epc: EPC,
 }
 
 // Contains data read by the RFID library
-pub static RFID_CHANNEL: Channel<CriticalSectionRawMutex, RFIDTag, 8> = Channel::new();
+pub static RFID_CHANNEL: Channel<CriticalSectionRawMutex, RFIDTag, 16> = Channel::new();
+
+#[derive(Clone, PartialEq, Eq)]
+pub struct EPC {
+    // EPC tags can technically be up to 62 bytes, ours are 12 though.
+    // Keep an eye on RAM usage, possibly change design.
+    // 12 bytes * 10,000 possible tags = 120,000 bytes / 1024 = 117.2 KB 
+    // Currently exists in SRAM, using 117.2 KB / 512 KB = 23.8% of SRAM. May switch to external RAM.
+    pub bytes: heapless::Vec<u8, 12>,
+}
+
+impl EPC {
+    pub fn new(bytes: heapless::Vec<u8, 12>) -> Self {
+        Self {
+            bytes
+        }
+    }
+}
 
 #[embassy_executor::task]
 pub async fn rfid_task(
     rfid_data: RfidInitData,
-    rfid_sender: Sender<'static, CriticalSectionRawMutex, RFIDTag, 8>,
+    rfid_sender: Sender<'static, CriticalSectionRawMutex, RFIDTag, 16>,
 ) {
     let setup_result = setup_rfid_module(
         rfid_data.baud_rate,
@@ -58,12 +76,15 @@ pub async fn rfid_task(
     rfid.set_read_power(1000);
     // Max Read TX Power is 27.00 dBm and may cause temperature-limit throttling
 
+    let mut unique_tags: heapless::Vec<EPC, 10000> = heapless::Vec::new();
+
     println!("Module connected! Constant scanning started.");
 
     rfid.start_reading();
 
     loop {
-        if rfid.check() {
+        if rfid.check().await {
+            
             let response_type = rfid.parse_response();
 
             match response_type {
@@ -86,7 +107,7 @@ pub async fn rfid_task(
                         "rssi: {rssi}, freq: {freq}, time stamp: {time_stamp}, tag epc bytes: {tag_epc_bytes}"
                     );
                     let mut output = heapless::String::<128>::new();
-                    let mut epc_bytes = heapless::Vec::new();
+                    let mut epc_bytes: heapless::Vec<u8, 12> = heapless::Vec::new();
 
                     write!(output, " epc[").unwrap();
 
@@ -95,15 +116,28 @@ pub async fn rfid_task(
                         epc_bytes.push(rfid.msg[31 + idx]).unwrap();
                     }
 
-                    write!(output, "]").unwrap();
+                    let epc = EPC::new(epc_bytes);
 
-                    println!("{}", output);
+                    write!(output, "]").unwrap();
+                    
+
+                    if unique_tags.contains(&epc) {
+                        println!("found: {}", output);
+                        continue;
+                    }
+
+                    
+                    println!("saving: {}", output);
+
+                    // todo!("Consider what to do if unique tags fills");
+                    let _ = unique_tags.push(epc.clone());
+
 
                     let rfid_tag = RFIDTag {
                         rssi,
                         freq,
                         time_stamp,
-                        epc_bytes,
+                        epc,
                     };
 
                     rfid_sender.send(rfid_tag).await;
@@ -119,8 +153,6 @@ pub async fn rfid_task(
                 }
             }
         }
-
-        Timer::after_millis(50).await;
     }
 }
 
@@ -132,18 +164,26 @@ async fn setup_rfid_module(
 ) -> Result<RFID, ResponseError> {
     let desired_config = Config::default().with_baudrate(baud_rate);
 
-    let rfid_uart: Uart<'_, esp_hal::Blocking> = Uart::new(uart, desired_config)
+    let rfid_uart: Uart<'_, esp_hal::Async> = Uart::new(uart, desired_config)
         .unwrap()
         .with_rx(rx)
-        .with_tx(tx);
+        .with_tx(tx)
+        .into_async();
     let mut rfid = RFID::new(rfid_uart);
     Timer::after(embassy_time::Duration::from_millis(100)).await;
 
-    let mut read_buf = [0u8; 1];
+    let mut read_buf = [0u8; 16];
     // About 200ms from power on the module will send its firmware version at 115200. We need to ignore this.
     while rfid.uart.read_ready() {
         // We don't care about what's being read
-        let _ = rfid.uart.read(&mut read_buf).unwrap();
+        match rfid.uart.read(&mut read_buf) {
+            Ok(_data) => {
+
+            },
+            Err(err) => {
+                info!("UART read error: {:?}", err);
+            } 
+        }
     }
 
     rfid.get_version();

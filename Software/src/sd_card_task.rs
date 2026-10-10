@@ -16,7 +16,7 @@ pub async fn sd_card_task(
         SdCard<ExclusiveDevice<Spi<'static, Blocking>, Output<'static>, Delay>, Delay>,
         DummyTimeSource,
     >,
-    rfid_data_reciever: Receiver<'static, CriticalSectionRawMutex, RFIDTag, 8>,
+    rfid_data_reciever: Receiver<'static, CriticalSectionRawMutex, RFIDTag, 16>,
 ) {
     let volume = volume_manager.open_volume(VolumeIdx(0)).unwrap();
 
@@ -95,7 +95,7 @@ fn format_rfid_data(data: &RFIDTag) -> heapless::String<256> {
     )
     .unwrap();
 
-    for (i, byte) in data.epc_bytes.iter().enumerate() {
+    for (i, byte) in data.epc.bytes.iter().enumerate() {
         if i > 0 {
             write!(output, " ").unwrap();
         }
