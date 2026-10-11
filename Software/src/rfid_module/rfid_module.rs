@@ -70,15 +70,15 @@ impl RFID {
     /// Takes in a baud rate
     /// Returns response in the msg array
     pub fn set_baudrate(&mut self, baudrate: u64) {
-    let data = (baudrate as u32).to_be_bytes();
+        let data = (baudrate as u32).to_be_bytes();
 
-    self.send_message(
-        TMR_SR_OPCODE_SET_BAUD_RATE,
-        &data,
-        COMMAND_TIME_OUT,
-        false,
-    );
-}
+        self.send_message(
+            TMR_SR_OPCODE_SET_BAUD_RATE,
+            &data,
+            COMMAND_TIME_OUT,
+            false,
+        );
+    }
 
     /// Begin scanning for tags
     /// There are many many options and features to the nano, this sets options

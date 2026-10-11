@@ -40,7 +40,7 @@ fn panic(panic_info: &core::panic::PanicInfo) -> ! {
 // For more information see: <https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/system/app_image_format.html#application-description>
 esp_bootloader_esp_idf::esp_app_desc!();
 
-pub const BAUD_RATE: u32 = 115200; // Test with new speed
+pub const BAUD_RATE: u32 = 38400;
 
 #[allow(
     clippy::large_stack_frames,
@@ -48,9 +48,6 @@ pub const BAUD_RATE: u32 = 115200; // Test with new speed
 )]
 #[esp_rtos::main]
 async fn main(spawner: embassy_executor::Spawner) -> ! {
-    // generator version: 1.3.0
-    // generator parameters: --chip esp32s3 -o log -o vscode
-
     esp_println::logger::init_logger_from_env();
 
     println!("Booting up...");
@@ -109,6 +106,6 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
 
     loop {
         // This task is currently not needed for anything after initialization
-        embassy_time::Timer::after_secs(u64::MAX).await;
+        embassy_time::Timer::after_secs(10).await;
     }
 }
