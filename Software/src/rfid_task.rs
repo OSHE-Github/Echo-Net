@@ -1,12 +1,15 @@
+use allocator_api2::vec::Vec;
 use core::fmt::Write;
 use embassy_sync::{
     blocking_mutex::raw::CriticalSectionRawMutex,
     channel::{Channel, Sender},
 };
 use embassy_time::Timer;
+use esp_alloc::ExternalMemory;
 use esp_hal::uart::{Config, Uart};
 use esp_println::println;
-use log::info;
+use hashbrown::HashSet;
+use log::{info, warn};
 
 use crate::rfid_module::{
     rfid_constants::{DEFAULT_BAUD_RATE, Region, ResponseError},
@@ -27,6 +30,9 @@ pub struct RFIDTag {
     pub epc: EPC,
 }
 
+// We can track up to 100,000 different bats in one session
+const MAX_TAGS: usize = 100_000;
+
 // Contains data read by the RFID library
 pub static RFID_CHANNEL: Channel<CriticalSectionRawMutex, RFIDTag, 16> = Channel::new();
 
@@ -34,16 +40,14 @@ pub static RFID_CHANNEL: Channel<CriticalSectionRawMutex, RFIDTag, 16> = Channel
 pub struct EPC {
     // EPC tags can technically be up to 62 bytes, ours are 12 though.
     // Keep an eye on RAM usage, possibly change design.
-    // 12 bytes * 10,000 possible tags = 120,000 bytes / 1024 = 117.2 KB 
+    // 12 bytes * 10,000 possible tags = 120,000 bytes / 1024 = 117.2 KB
     // Currently exists in SRAM, using 117.2 KB / 512 KB = 23.8% of SRAM. May switch to external RAM.
     pub bytes: heapless::Vec<u8, 12>,
 }
 
 impl EPC {
     pub fn new(bytes: heapless::Vec<u8, 12>) -> Self {
-        Self {
-            bytes
-        }
+        Self { bytes }
     }
 }
 
@@ -52,6 +56,9 @@ pub async fn rfid_task(
     rfid_data: RfidInitData,
     rfid_sender: Sender<'static, CriticalSectionRawMutex, RFIDTag, 16>,
 ) {
+    // PSRAM storage for the EPC tags. Stored in a has for faster access
+    let mut unique_epc_tags = create_tag_storage();
+
     let setup_result = setup_rfid_module(
         rfid_data.baud_rate,
         rfid_data.uart,
@@ -76,15 +83,12 @@ pub async fn rfid_task(
     rfid.set_read_power(1000);
     // Max Read TX Power is 27.00 dBm and may cause temperature-limit throttling
 
-    let mut unique_tags: heapless::Vec<EPC, 10000> = heapless::Vec::new();
-
     println!("Module connected! Constant scanning started.");
 
     rfid.start_reading();
 
     loop {
         if rfid.check().await {
-            
             let response_type = rfid.parse_response();
 
             match response_type {
@@ -119,19 +123,21 @@ pub async fn rfid_task(
                     let epc = EPC::new(epc_bytes);
 
                     write!(output, "]").unwrap();
-                    
 
-                    if unique_tags.contains(&epc) {
-                        println!("found: {}", output);
-                        continue;
+                    let result = check_if_unique(unique_epc_tags, &epc);
+                    match result {
+                        Ok(true) => {
+                            println!("saving: {}", output);
+                        }
+                        Ok(false) => {
+                            println!("found: {}", output);
+                            continue;
+                        }
+                        Err(_) => {
+                            warn!("RFID tag PSRAM is full!");
+                            continue;
+                        }
                     }
-
-                    
-                    println!("saving: {}", output);
-
-                    // todo!("Consider what to do if unique tags fills");
-                    let _ = unique_tags.push(epc.clone());
-
 
                     let rfid_tag = RFIDTag {
                         rssi,
@@ -170,6 +176,8 @@ async fn setup_rfid_module(
         .with_tx(tx)
         .into_async();
     let mut rfid = RFID::new(rfid_uart);
+
+    // Wait for RFID module to boot up
     Timer::after(embassy_time::Duration::from_millis(100)).await;
 
     let mut read_buf = [0u8; 16];
@@ -177,12 +185,10 @@ async fn setup_rfid_module(
     while rfid.uart.read_ready() {
         // We don't care about what's being read
         match rfid.uart.read(&mut read_buf) {
-            Ok(_data) => {
-
-            },
+            Ok(_data) => {}
             Err(err) => {
                 info!("UART read error: {:?}", err);
-            } 
+            }
         }
     }
 
@@ -217,4 +223,30 @@ async fn setup_rfid_module(
         Some(response_error) => Err(response_error),
         None => Err(ResponseError::ResponseIsUnknown),
     }
+}
+
+fn create_tag_storage() -> HashSet<EPC, _, ExternalMemory> {
+    let mut tags =
+        HashSet::with_capacity_and_hasher_in(MAX_TAGS, Default::default(), ExternalMemory);
+
+    // If we can't store the tags then fail
+    tags.try_reserve_exact(MAX_TAGS)
+        .expect("Failed to allocate RFID tag storage in PSRAM");
+
+    tags
+}
+
+fn check_if_unique(
+    tags: &mut HashSet<EPC, hashbrown::DefaultHashBuilder, ExternalMemory>,
+    tag: RfidTag,
+) -> Result<bool, ()> {
+    if tags.contains(&tag) {
+        return Ok(false);
+    }
+
+    if tags.len() >= MAX_TAGS {
+        return Err(());
+    }
+
+    Ok(tags.insert(tag))
 }

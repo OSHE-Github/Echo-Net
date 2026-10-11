@@ -40,7 +40,7 @@ fn panic(panic_info: &core::panic::PanicInfo) -> ! {
 // For more information see: <https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/system/app_image_format.html#application-description>
 esp_bootloader_esp_idf::esp_app_desc!();
 
-pub const BAUD_RATE: u32 = 38400;
+pub const BAUD_RATE: u32 = 115200; // Test with new speed
 
 #[allow(
     clippy::large_stack_frames,
@@ -57,6 +57,8 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
 
     let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
     let peripherals: esp_hal::peripherals::Peripherals = esp_hal::init(config);
+    // We are using PSRAM for the RFID storage so that we can store many many tags
+    esp_alloc::psram_allocator!(peripherals.PSRAM, esp_hal::psram);
 
     let timg0 = TimerGroup::new(peripherals.TIMG0);
 
@@ -92,13 +94,12 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
 
     cs.set_high();
 
-    // 2. Create an array of 10 dummy bytes (all 1s)
+    // Create an array of 10 dummy bytes (all 1s)
+    // Otherwise, the SD card won't write properly
     let dummy_bytes: [u8; 10] = [0xFF; 10];
     spi_bus.write(&dummy_bytes).unwrap();
 
     let spi_dev = ExclusiveDevice::new(spi_bus, cs, embassy_time::Delay).unwrap();
-
-
     let sd_card = SdCard::new(spi_dev, embassy_time::Delay);
 
     let volume_manager = VolumeManager::new(sd_card, DummyTimeSource);
@@ -107,6 +108,7 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
     spawner.spawn(sd_card_task(volume_manager, RFID_CHANNEL.receiver()).unwrap());
 
     loop {
-        embassy_time::Timer::after_millis(500).await;
+        // This task is currently not needed for anything after initialization
+        embassy_time::Timer::after_secs(u64::MAX).await;
     }
 }
