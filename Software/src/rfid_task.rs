@@ -54,14 +54,10 @@ pub async fn rfid_task(
     rfid_data: RfidInitData,
     rfid_sender: Sender<'static, CriticalSectionRawMutex, RFIDTag, 16>,
 ) {
-    let before = esp_alloc::HEAP.stats();
-    log::info!("Heap before: {}", before);
     // PSRAM storage for the EPC tags. Stored in a has for faster access
     let mut unique_epc_tags: HashSet<EPC> =
         HashSet::with_capacity_and_hasher(MAX_TAGS, Default::default());
-    let after = esp_alloc::HEAP.stats();
-    log::info!("Heap after: {}", after);
-
+        
     let setup_result = setup_rfid_module(
         rfid_data.baud_rate,
         rfid_data.uart,
