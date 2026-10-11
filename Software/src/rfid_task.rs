@@ -1,11 +1,9 @@
-use allocator_api2::vec::Vec;
 use core::fmt::Write;
 use embassy_sync::{
     blocking_mutex::raw::CriticalSectionRawMutex,
     channel::{Channel, Sender},
 };
 use embassy_time::Timer;
-use esp_alloc::ExternalMemory;
 use esp_hal::uart::{Config, Uart};
 use esp_println::println;
 use hashbrown::HashSet;
@@ -36,7 +34,7 @@ const MAX_TAGS: usize = 100_000;
 // Contains data read by the RFID library
 pub static RFID_CHANNEL: Channel<CriticalSectionRawMutex, RFIDTag, 16> = Channel::new();
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct EPC {
     // EPC tags can technically be up to 62 bytes, ours are 12 though.
     // Keep an eye on RAM usage, possibly change design.
@@ -56,8 +54,13 @@ pub async fn rfid_task(
     rfid_data: RfidInitData,
     rfid_sender: Sender<'static, CriticalSectionRawMutex, RFIDTag, 16>,
 ) {
+    let before = esp_alloc::HEAP.stats();
+    log::info!("Heap before: {}", before);
     // PSRAM storage for the EPC tags. Stored in a has for faster access
-    let mut unique_epc_tags = create_tag_storage();
+    let mut unique_epc_tags: HashSet<EPC> =
+        HashSet::with_capacity_and_hasher(MAX_TAGS, Default::default());
+    let after = esp_alloc::HEAP.stats();
+    log::info!("Heap after: {}", after);
 
     let setup_result = setup_rfid_module(
         rfid_data.baud_rate,
@@ -124,7 +127,7 @@ pub async fn rfid_task(
 
                     write!(output, "]").unwrap();
 
-                    let result = check_if_unique(unique_epc_tags, &epc);
+                    let result = check_if_unique(&mut unique_epc_tags, epc.clone());
                     match result {
                         Ok(true) => {
                             println!("saving: {}", output);
@@ -225,21 +228,7 @@ async fn setup_rfid_module(
     }
 }
 
-fn create_tag_storage() -> HashSet<EPC, _, ExternalMemory> {
-    let mut tags =
-        HashSet::with_capacity_and_hasher_in(MAX_TAGS, Default::default(), ExternalMemory);
-
-    // If we can't store the tags then fail
-    tags.try_reserve_exact(MAX_TAGS)
-        .expect("Failed to allocate RFID tag storage in PSRAM");
-
-    tags
-}
-
-fn check_if_unique(
-    tags: &mut HashSet<EPC, hashbrown::DefaultHashBuilder, ExternalMemory>,
-    tag: RfidTag,
-) -> Result<bool, ()> {
+fn check_if_unique(tags: &mut HashSet<EPC>, tag: EPC) -> Result<bool, ()> {
     if tags.contains(&tag) {
         return Ok(false);
     }
