@@ -11,6 +11,7 @@ use embedded_hal_bus::spi::ExclusiveDevice;
 use embedded_sdmmc::{SdCard, VolumeManager};
 use esp_hal::{
     clock::CpuClock,
+    i2c::master::I2c,
     spi::{self, master::Spi},
     time::Rate,
     timer::timg::TimerGroup,
@@ -20,6 +21,7 @@ pub mod rfid_module;
 pub mod rfid_task;
 pub mod sd_card_task;
 pub mod time_source;
+pub mod ui_task;
 
 use esp_println::println;
 use log::error;
@@ -28,6 +30,7 @@ use crate::{
     rfid_task::{RFID_CHANNEL, RfidInitData, rfid_task},
     sd_card_task::sd_card_task,
     time_source::DummyTimeSource,
+    ui_task::{ui_driver_task, ui_task_test},
 };
 
 #[panic_handler]
@@ -83,6 +86,13 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
     .with_mosi(peripherals.GPIO38)
     .with_miso(peripherals.GPIO47);
 
+    let i2c_line: I2c<'static, esp_hal::Async> =
+        I2c::new(peripherals.I2C0, esp_hal::i2c::master::Config::default())
+            .unwrap()
+            .with_sda(peripherals.GPIO11)
+            .with_scl(peripherals.GPIO12)
+            .into_async();
+
     let mut cs = esp_hal::gpio::Output::new(
         peripherals.GPIO21,
         esp_hal::gpio::Level::High,
@@ -103,6 +113,7 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
 
     spawner.spawn(rfid_task(rfid_data, RFID_CHANNEL.sender()).unwrap());
     spawner.spawn(sd_card_task(volume_manager, RFID_CHANNEL.receiver()).unwrap());
+    spawner.spawn(ui_driver_task(i2c_line).unwrap());
 
     loop {
         // This task is currently not needed for anything after initialization
