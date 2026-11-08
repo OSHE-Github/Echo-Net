@@ -15,22 +15,20 @@ use esp_hal::{
     spi::{self, master::Spi},
     time::Rate,
     timer::timg::TimerGroup,
+    gpio::{InputConfig, Pull},
 };
 
 pub mod rfid_module;
 pub mod rfid_task;
 pub mod sd_card_task;
 pub mod time_source;
-pub mod ui_task;
+pub mod ui;
 
 use esp_println::println;
 use log::error;
 
 use crate::{
-    rfid_task::{RFID_CHANNEL, RfidInitData, rfid_task},
-    sd_card_task::sd_card_task,
-    time_source::DummyTimeSource,
-    ui_task::{ui_driver_task},
+    rfid_task::{RFID_CHANNEL, RfidInitData, rfid_task}, sd_card_task::sd_card_task, time_source::DummyTimeSource, ui::ui_task::{UI_CHANNEL, ui_driver_task},
 };
 
 #[panic_handler]
@@ -66,6 +64,26 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
         esp_hal::interrupt::software::SoftwareInterruptControl::new(peripherals.SW_INTERRUPT);
 
     esp_rtos::start(timg0.timer0, sw_ints.software_interrupt0);
+
+    // Buttons
+    let mut button_s1 = esp_hal::gpio::Input::new(
+        peripherals.GPIO7,
+        InputConfig::default().with_pull(Pull::Up),
+    );
+    let mut button_s2 = esp_hal::gpio::Input::new(
+        peripherals.GPIO8,
+        InputConfig::default().with_pull(Pull::Up),
+    );
+    let mut button_s3 = esp_hal::gpio::Input::new(
+        peripherals.GPIO9,
+        InputConfig::default().with_pull(Pull::Up),
+    );
+    let mut button_s4 = esp_hal::gpio::Input::new(
+        peripherals.GPIO10,
+        InputConfig::default().with_pull(Pull::Up),
+    );
+
+
 
     let rfid_data = RfidInitData {
         baud_rate: BAUD_RATE,
@@ -111,12 +129,27 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
 
     let volume_manager = VolumeManager::new(sd_card, DummyTimeSource);
 
-    spawner.spawn(rfid_task(rfid_data, RFID_CHANNEL.sender()).unwrap());
+    // spawner.spawn(rfid_task(rfid_data, RFID_CHANNEL.sender()).unwrap());
     spawner.spawn(sd_card_task(volume_manager, RFID_CHANNEL.receiver()).unwrap());
-    spawner.spawn(ui_driver_task(i2c_line).unwrap());
+    spawner.spawn(ui_driver_task(i2c_line, UI_CHANNEL.receiver()).unwrap());
+
+    let sender = UI_CHANNEL.sender();
 
     loop {
-        // This task is currently not needed for anything after initialization
-        embassy_time::Timer::after_secs(10).await;
+        match embassy_futures::select::select4(button_s1.wait_for_any_edge(), button_s2.wait_for_falling_edge(), button_s3.wait_for_falling_edge(), button_s4.wait_for_falling_edge()).await {
+            embassy_futures::select::Either4::First(_) => {
+                let _ = sender.try_send("Button 1 pressed");
+            },
+            embassy_futures::select::Either4::Second(_) => {
+                let _ = sender.try_send("Button 2 pressed");
+            },
+            embassy_futures::select::Either4::Third(_) => {
+                let _ = sender.try_send("Button 3 pressed");
+            },
+            embassy_futures::select::Either4::Fourth(_) => {
+                let _ = sender.try_send("Button 4 pressed");
+            },
+        }
+
     }
 }

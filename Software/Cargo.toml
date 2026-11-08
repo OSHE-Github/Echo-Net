@@ -26,6 +26,7 @@ allocator-api2 = { version = "0.2.21", default-features = false, features = ["al
 hashbrown = { version = "0.16", features = ["default-hasher"] }
 ssd1306 = { version = "0.10.0", features = ["async"] }
 embedded-graphics = "0.8.2"
+embassy-futures = "0.1.2"
 
 
 # For fine tuning these settings, please refer to https://doc.rust-lang.org/cargo/reference/profiles.html
