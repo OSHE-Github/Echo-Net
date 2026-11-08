@@ -11,6 +11,7 @@ use embedded_hal_bus::spi::ExclusiveDevice;
 use embedded_sdmmc::{SdCard, VolumeManager};
 use esp_hal::{
     clock::CpuClock,
+    gpio::{InputConfig, Pull},
     spi::{self, master::Spi},
     time::Rate,
     timer::timg::TimerGroup,
@@ -61,6 +62,24 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
 
     let sw_ints =
         esp_hal::interrupt::software::SoftwareInterruptControl::new(peripherals.SW_INTERRUPT);
+
+    // Buttons
+    let mut button_d4 = esp_hal::gpio::Input::new(
+        peripherals.GPIO9,
+        InputConfig::default().with_pull(Pull::Up),
+    );
+    let mut button_d5 = esp_hal::gpio::Input::new(
+        peripherals.GPIO8,
+        InputConfig::default().with_pull(Pull::Up),
+    );
+    let mut button_d6 = esp_hal::gpio::Input::new(
+        peripherals.GPIO7,
+        InputConfig::default().with_pull(Pull::Up),
+    );
+    let mut button_d7 = esp_hal::gpio::Input::new(
+        peripherals.GPIO6,
+        InputConfig::default().with_pull(Pull::Up),
+    );
 
     esp_rtos::start(timg0.timer0, sw_ints.software_interrupt0);
 
