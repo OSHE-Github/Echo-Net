@@ -6,6 +6,7 @@ use embedded_graphics::{
     text::Text,
 };
 use esp_hal::i2c::master::I2c;
+use esp_println::println;
 use ssd1306::{
     Ssd1306Async, mode::DisplayConfigAsync, prelude::I2CInterface, size::DisplaySize128x64,
 };
@@ -23,6 +24,7 @@ pub async fn ui_driver_task(i2c: I2c<'static, esp_hal::Async>) {
 
     // Initialize OLED controller
     display.init().await.unwrap();
+    println!("UI initialized");
 
     let text_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
 

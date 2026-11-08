@@ -30,7 +30,7 @@ use crate::{
     rfid_task::{RFID_CHANNEL, RfidInitData, rfid_task},
     sd_card_task::sd_card_task,
     time_source::DummyTimeSource,
-    ui_task::{ui_driver_task, ui_task_test},
+    ui_task::{ui_driver_task},
 };
 
 #[panic_handler]
