@@ -18,17 +18,20 @@ use esp_hal::{
     gpio::{InputConfig, Pull},
 };
 
+// Folders
 pub mod rfid_module;
+pub mod ui;
+// Files
+pub mod cross_task_data;
 pub mod rfid_task;
 pub mod sd_card_task;
 pub mod time_source;
-pub mod ui;
 
 use esp_println::println;
 use log::error;
 
 use crate::{
-    rfid_task::{RFID_CHANNEL, RfidInitData, rfid_task}, sd_card_task::sd_card_task, time_source::DummyTimeSource, ui::ui_task::{UI_CHANNEL, ui_driver_task},
+    rfid_task::{RFID_CHANNEL, RfidInitData, rfid_task}, sd_card_task::sd_card_task, time_source::{DeviceTimeSource, DummyTimeSource}, ui::ui_task::{DeviceButton, UI_CHANNEL, ui_driver_task},
 };
 
 #[panic_handler]
@@ -127,7 +130,7 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
     let spi_dev = ExclusiveDevice::new(spi_bus, cs, embassy_time::Delay).unwrap();
     let sd_card = SdCard::new(spi_dev, embassy_time::Delay);
 
-    let volume_manager = VolumeManager::new(sd_card, DummyTimeSource);
+    let volume_manager = VolumeManager::new(sd_card, DeviceTimeSource::new());
 
     // spawner.spawn(rfid_task(rfid_data, RFID_CHANNEL.sender()).unwrap());
     spawner.spawn(sd_card_task(volume_manager, RFID_CHANNEL.receiver()).unwrap());
@@ -138,16 +141,16 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
     loop {
         match embassy_futures::select::select4(button_s1.wait_for_any_edge(), button_s2.wait_for_falling_edge(), button_s3.wait_for_falling_edge(), button_s4.wait_for_falling_edge()).await {
             embassy_futures::select::Either4::First(_) => {
-                let _ = sender.try_send("Button 1 pressed");
+                let _ = sender.try_send(DeviceButton::TriggerButton);
             },
             embassy_futures::select::Either4::Second(_) => {
-                let _ = sender.try_send("Button 2 pressed");
+                let _ = sender.try_send(DeviceButton::MenuButton);
             },
             embassy_futures::select::Either4::Third(_) => {
-                let _ = sender.try_send("Button 3 pressed");
+                let _ = sender.try_send(DeviceButton::PlusButton);
             },
             embassy_futures::select::Either4::Fourth(_) => {
-                let _ = sender.try_send("Button 4 pressed");
+                let _ = sender.try_send(DeviceButton::LockButton);
             },
         }
 

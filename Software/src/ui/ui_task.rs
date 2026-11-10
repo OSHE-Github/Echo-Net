@@ -1,5 +1,4 @@
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::{Channel, Receiver}};
-use embassy_time::Timer;
 use embedded_graphics::{
     Drawable,
     geometry::Point,
@@ -13,12 +12,21 @@ use ssd1306::{
     Ssd1306Async, mode::DisplayConfigAsync, prelude::I2CInterface, size::DisplaySize128x64,
 };
 
+use crate::{rfid_task::RFID_SCANNING_ENABLED, ui::ui_menu::UIMenu};
+
+pub enum DeviceButton {
+    TriggerButton,
+    MenuButton,
+    PlusButton,
+    LockButton,
+} 
+
 // Contains data read by the RFID library
-pub static UI_CHANNEL: Channel<CriticalSectionRawMutex, &'static str, 16> = Channel::new();
+pub static UI_CHANNEL: Channel<CriticalSectionRawMutex, DeviceButton, 16> = Channel::new();
 
 #[embassy_executor::task]
 pub async fn ui_driver_task(i2c: I2c<'static, esp_hal::Async>, 
-    message_reciever: Receiver<'static, CriticalSectionRawMutex, &'static str, 16>,) {
+    message_reciever: Receiver<'static, CriticalSectionRawMutex, DeviceButton, 16>,) {
     let interface = I2CInterface::new(i2c, 0x3C, 0x40);
 
     let mut display = Ssd1306Async::new(
@@ -42,18 +50,39 @@ pub async fn ui_driver_task(i2c: I2c<'static, esp_hal::Async>,
     // Send framebuffer to the display
     display.flush().await.unwrap();
 
-    loop {
-        let message = message_reciever.receive().await;
-        
-        display.clear_buffer();
-        
-        // Write text
-        Text::new(message, Point::new(0, 16), text_style)
-            .draw(&mut display)
-            .unwrap();
+    let mut ui_menu = UIMenu::new();
 
-        // Send framebuffer to the display
-        display.flush().await.unwrap();
+    let mut currently_reading = false;
+    let rfid_reading_sender = RFID_SCANNING_ENABLED.sender();
+
+    loop {
+        let button = message_reciever.receive().await;
+
+        match button {
+            DeviceButton::TriggerButton => {
+                currently_reading = !currently_reading;
+                rfid_reading_sender.send(currently_reading);
+                ui_menu.press_trigger_button();
+            },
+            DeviceButton::MenuButton => {
+                ui_menu.press_menu_button();
+            },
+            DeviceButton::PlusButton => {
+                ui_menu.press_plus_button();
+            },
+            DeviceButton::LockButton => {
+                ui_menu.press_lock_button();
+            },
+        }
+        // display.clear_buffer();
+        
+        // // Write text
+        // Text::new(message, Point::new(0, 16), text_style)
+        //     .draw(&mut display)
+        //     .unwrap();
+
+        // // Send framebuffer to the display
+        // display.flush().await.unwrap();
 
     }
 }

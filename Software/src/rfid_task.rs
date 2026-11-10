@@ -1,7 +1,6 @@
 use core::fmt::Write;
 use embassy_sync::{
-    blocking_mutex::raw::CriticalSectionRawMutex,
-    channel::{Channel, Sender},
+    blocking_mutex::raw::CriticalSectionRawMutex, channel::{Channel, Sender}, watch::Watch,
 };
 use embassy_time::Timer;
 use esp_hal::uart::{Config, Uart};
@@ -9,10 +8,10 @@ use esp_println::println;
 use hashbrown::HashSet;
 use log::{info, warn};
 
-use crate::rfid_module::{
+use crate::{cross_task_data::{get_current_power_level, set_power_level}, rfid_module::{
     rfid_constants::{DEFAULT_BAUD_RATE, Region, ResponseError},
     rfid_module::RFID,
-};
+}};
 
 pub struct RfidInitData {
     pub baud_rate: u32,
@@ -33,6 +32,8 @@ const MAX_TAGS: usize = 100_000;
 
 // Contains data read by the RFID library
 pub static RFID_CHANNEL: Channel<CriticalSectionRawMutex, RFIDTag, 16> = Channel::new();
+
+pub static RFID_SCANNING_ENABLED: Watch<CriticalSectionRawMutex, bool, 1> = Watch::new();
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct EPC {
@@ -79,14 +80,20 @@ pub async fn rfid_task(
     rfid.set_region(Region::NorthAmerica);
 
     // 5.00 dBm. Higher values may caues USB port to brown out
-    rfid.set_read_power(1000);
+    // We use an AtomicU16 so the UI task can also safely access it
+    set_power_level(1000);
+    rfid.set_read_power(get_current_power_level());
     // Max Read TX Power is 27.00 dBm and may cause temperature-limit throttling
 
     println!("Module connected! Constant scanning started.");
 
     rfid.start_reading();
 
+    let mut rfid_scanning_reciever = RFID_SCANNING_ENABLED.receiver().unwrap();
+
     loop {
+        rfid_scanning_reciever.get_and(|enabled| *enabled).await;
+
         if rfid.check().await {
             let response_type = rfid.parse_response();
 

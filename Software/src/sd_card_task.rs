@@ -6,7 +6,7 @@ use embedded_sdmmc::{Mode, SdCard, VolumeIdx, VolumeManager};
 use esp_hal::{Blocking, gpio::Output, spi::master::Spi};
 use esp_println::println;
 
-use crate::{rfid_task::RFIDTag, time_source::DummyTimeSource};
+use crate::{rfid_task::{EPC, RFIDTag}, time_source::DeviceTimeSource};
 
 const ECHO_NET_DIRECTORY: &'static str = "ECHONET";
 
@@ -14,7 +14,7 @@ const ECHO_NET_DIRECTORY: &'static str = "ECHONET";
 pub async fn sd_card_task(
     volume_manager: VolumeManager<
         SdCard<ExclusiveDevice<Spi<'static, Blocking>, Output<'static>, Delay>, Delay>,
-        DummyTimeSource,
+        DeviceTimeSource,
     >,
     rfid_data_reciever: Receiver<'static, CriticalSectionRawMutex, RFIDTag, 16>,
 ) {
@@ -104,6 +104,20 @@ fn format_rfid_data(data: &RFIDTag) -> heapless::String<256> {
     }
 
     writeln!(output, "]").unwrap();
+
+    output
+}
+
+pub fn format_epc(epc: &EPC) -> heapless::String<16> {
+    let mut output = heapless::String::new();
+
+    for (i, byte) in epc.bytes.iter().enumerate() {
+        if i > 0 {
+            write!(output, " ").unwrap();
+        }
+
+        write!(output, "{:02X}", byte).unwrap();
+    }
 
     output
 }
