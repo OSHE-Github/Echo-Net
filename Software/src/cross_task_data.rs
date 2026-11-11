@@ -1,7 +1,7 @@
 use core::sync::atomic::{AtomicU16, AtomicU32, Ordering};
 
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, mutex::Mutex};
-use embedded_sdmmc::Timestamp;
+use embedded_sdmmc::{TimeSource, Timestamp};
 
 use crate::{rfid_task::EPC, time_source::DeviceTimeSource};
 
@@ -50,13 +50,14 @@ pub fn get_current_rfid_module_temperature() -> f32 {
     (temp_f_times_10 as f32) / 10.0f32
 }
 
-static DEVICE_TIME_SOURCE: Mutex<CriticalSectionRawMutex, DeviceTimeSource> = Mutex::new(DeviceTimeSource::new());
+static DEVICE_TIME_SOURCE: Mutex<CriticalSectionRawMutex, DeviceTimeSource> =
+    Mutex::new(DeviceTimeSource::new());
 
 pub async fn update_device_time(timestamp: Timestamp) {
-    let mut device_time_source = DEVICE_TIME_SOURCE.lock().await; 
+    let mut device_time_source = DEVICE_TIME_SOURCE.lock().await;
     device_time_source.set_time(timestamp);
 }
 
-pub async fn get_most_recent_epc() -> TIme {
-    LAST_RFID_READ.lock().await.clone()
-}   
+pub async fn get_current_time() -> Timestamp {
+    DEVICE_TIME_SOURCE.lock().await.get_timestamp().clone()
+}

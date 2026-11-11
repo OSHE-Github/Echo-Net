@@ -11,11 +11,11 @@ use embedded_hal_bus::spi::ExclusiveDevice;
 use embedded_sdmmc::{SdCard, VolumeManager};
 use esp_hal::{
     clock::CpuClock,
+    gpio::{InputConfig, Pull},
     i2c::master::I2c,
     spi::{self, master::Spi},
     time::Rate,
     timer::timg::TimerGroup,
-    gpio::{InputConfig, Pull},
 };
 
 // Folders
@@ -31,7 +31,10 @@ use esp_println::println;
 use log::error;
 
 use crate::{
-    rfid_task::{RFID_CHANNEL, RfidInitData, rfid_task}, sd_card_task::sd_card_task, time_source::{DeviceTimeSource, DummyTimeSource}, ui::ui_task::{DeviceButton, UI_CHANNEL, ui_driver_task},
+    rfid_task::{RFID_CHANNEL, RfidInitData, rfid_task},
+    sd_card_task::sd_card_task,
+    time_source::{DeviceTimeSource, DummyTimeSource},
+    ui::ui_task::{DeviceButton, UI_CHANNEL, ui_driver_task},
 };
 
 #[panic_handler]
@@ -86,8 +89,6 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
         InputConfig::default().with_pull(Pull::Up),
     );
 
-
-
     let rfid_data = RfidInitData {
         baud_rate: BAUD_RATE,
         uart: peripherals.UART0,
@@ -139,20 +140,26 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
     let sender = UI_CHANNEL.sender();
 
     loop {
-        match embassy_futures::select::select4(button_s1.wait_for_any_edge(), button_s2.wait_for_falling_edge(), button_s3.wait_for_falling_edge(), button_s4.wait_for_falling_edge()).await {
+        match embassy_futures::select::select4(
+            button_s1.wait_for_any_edge(),
+            button_s2.wait_for_falling_edge(),
+            button_s3.wait_for_falling_edge(),
+            button_s4.wait_for_falling_edge(),
+        )
+        .await
+        {
             embassy_futures::select::Either4::First(_) => {
                 let _ = sender.try_send(DeviceButton::TriggerButton);
-            },
+            }
             embassy_futures::select::Either4::Second(_) => {
                 let _ = sender.try_send(DeviceButton::MenuButton);
-            },
+            }
             embassy_futures::select::Either4::Third(_) => {
                 let _ = sender.try_send(DeviceButton::PlusButton);
-            },
+            }
             embassy_futures::select::Either4::Fourth(_) => {
                 let _ = sender.try_send(DeviceButton::LockButton);
-            },
+            }
         }
-
     }
 }

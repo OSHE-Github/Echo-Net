@@ -1,6 +1,9 @@
 use core::fmt::Write;
 use embassy_sync::{
-    blocking_mutex::raw::CriticalSectionRawMutex, channel::{Channel, Sender}, watch::Watch,
+    blocking_mutex::raw::CriticalSectionRawMutex,
+    channel::{Channel, Sender},
+    mutex::Mutex,
+    watch::Watch,
 };
 use embassy_time::Timer;
 use esp_hal::uart::{Config, Uart};
@@ -8,10 +11,13 @@ use esp_println::println;
 use hashbrown::HashSet;
 use log::{info, warn};
 
-use crate::{cross_task_data::{get_current_power_level, set_power_level}, rfid_module::{
-    rfid_constants::{DEFAULT_BAUD_RATE, Region, ResponseError},
-    rfid_module::RFID,
-}};
+use crate::{
+    cross_task_data::{get_current_power_level, set_power_level},
+    rfid_module::{
+        rfid_constants::{DEFAULT_BAUD_RATE, Region, ResponseError},
+        rfid_module::RFID,
+    },
+};
 
 pub struct RfidInitData {
     pub baud_rate: u32,
@@ -35,6 +41,8 @@ pub static RFID_CHANNEL: Channel<CriticalSectionRawMutex, RFIDTag, 16> = Channel
 
 pub static RFID_SCANNING_ENABLED: Watch<CriticalSectionRawMutex, bool, 1> = Watch::new();
 
+pub static UNIQUE_EPC_TAGS: Mutex<CriticalSectionRawMutex, Option<HashSet<EPC>>> = Mutex::new(None);
+
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct EPC {
     // EPC tags can technically be up to 62 bytes, ours are 12 though.
@@ -55,10 +63,6 @@ pub async fn rfid_task(
     rfid_data: RfidInitData,
     rfid_sender: Sender<'static, CriticalSectionRawMutex, RFIDTag, 16>,
 ) {
-    // PSRAM storage for the EPC tags. Stored in a has for faster access
-    let mut unique_epc_tags: HashSet<EPC> =
-        HashSet::with_capacity_and_hasher(MAX_TAGS, Default::default());
-        
     let setup_result = setup_rfid_module(
         rfid_data.baud_rate,
         rfid_data.uart,
@@ -129,6 +133,8 @@ pub async fn rfid_task(
                     let epc = EPC::new(epc_bytes);
 
                     write!(output, "]").unwrap();
+
+                    let mut unique_epc_tags = UNIQUE_EPC_TAGS.lock().await;
 
                     let result = check_if_unique(&mut unique_epc_tags, epc.clone());
                     match result {
@@ -231,14 +237,22 @@ async fn setup_rfid_module(
     }
 }
 
-fn check_if_unique(tags: &mut HashSet<EPC>, tag: EPC) -> Result<bool, ()> {
-    if tags.contains(&tag) {
-        return Ok(false);
-    }
+fn check_if_unique(tags: &mut Option<HashSet<EPC>>, tag: EPC) -> Result<bool, ()> {
+    tags.unwrap().
+    match tags {
+        Some(tags) => {
+            if tags.contains(&tag) {
+                return Ok(false);
+            }
 
-    if tags.len() >= MAX_TAGS {
-        return Err(());
-    }
+            if tags.len() >= MAX_TAGS {
+                return Err(());
+            }
 
-    Ok(tags.insert(tag))
+            Ok(tags.insert(tag))
+        }
+        None => Err(()),
+    }
 }
+
+fn get_rfid_tag(tag_index_ )

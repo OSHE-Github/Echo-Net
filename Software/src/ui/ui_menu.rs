@@ -1,7 +1,14 @@
 use embedded_sdmmc::Timestamp;
 use heapless::{String, format};
 
-use crate::{cross_task_data::{get_current_bat_amount, get_current_power_level, get_most_recent_epc, set_power_level}, sd_card_task::format_epc, time_source::DeviceTimeSource};
+use crate::{
+    cross_task_data::{
+        get_current_bat_amount, get_current_power_level, get_current_time, get_most_recent_epc,
+        set_power_level,
+    },
+    sd_card_task::format_epc,
+    time_source::DeviceTimeSource,
+};
 
 struct MainMenu {
     // Bat amount read this session
@@ -13,8 +20,6 @@ impl MainMenu {
     pub fn new() -> Self {
         Self {}
     }
-
-    
 }
 
 struct PowerMenu {
@@ -54,7 +59,6 @@ impl PowerMenu {
 
         power_level
     }
-
 }
 
 struct ReadTagMenu {
@@ -65,9 +69,7 @@ struct ReadTagMenu {
 
 impl ReadTagMenu {
     pub fn new() -> Self {
-        Self {
-            tag_index: 0,
-        }
+        Self { tag_index: 0 }
     }
 
     pub fn increase_index(&mut self) {
@@ -81,15 +83,12 @@ impl ReadTagMenu {
     pub fn get_index(&self) -> usize {
         self.tag_index
     }
-    
 }
 
 struct TempMenu {
     // "Temperature"
     // temperature
 }
-
-
 
 struct TimeMenu {
     // Currently selected digit (0-7)
@@ -116,12 +115,10 @@ impl TimeMenu {
 
         self.time_digits[self.time_index] =
             (self.time_digits[self.time_index] + 1) % (max_values[self.time_index] + 1);
-
-        
     }
 
     pub fn get_time(&self) -> String<16> {
-        let time = format!(16; 
+        let time = format!(16;
             "{:02}{:02}{:02}{:02}",
             self.time_digits[0] * 10 + self.time_digits[1],
             self.time_digits[2] * 10 + self.time_digits[3],
@@ -149,8 +146,6 @@ impl TimeMenu {
         });
     }
 }
-
-
 
 pub struct UIMenu {
     active_menu_state: ActiveMenuState,
@@ -194,21 +189,11 @@ impl UIMenu {
 
     pub async fn get_display(&self) -> [Option<String<16>>; 3] {
         match self.active_menu_state {
-            ActiveMenuState::Main => {
-                self.get_main_menu_text().await
-            },
-            ActiveMenuState::Power => {
-                self.get_power_menu_text()
-            },
-            ActiveMenuState::ReadTags => {
-                self.get_tag_menu_text()
-            },
-            ActiveMenuState::Temp => {
-                self.get_temp_menu_text()
-            },
-            ActiveMenuState::Time => {
-                self.get_time_menu_text()
-            },
+            ActiveMenuState::Main => self.get_main_menu_text().await,
+            ActiveMenuState::Power => self.get_power_menu_text(),
+            ActiveMenuState::ReadTags => self.get_tag_menu_text(),
+            ActiveMenuState::Temp => self.get_temp_menu_text(),
+            ActiveMenuState::Time => self.get_time_menu_text(),
         }
     }
 
@@ -224,13 +209,13 @@ impl UIMenu {
         match self.active_menu_state {
             ActiveMenuState::Power => {
                 self.power_menu.increase_power_on_digit();
-            },
+            }
             ActiveMenuState::ReadTags => {
                 self.tag_menu.increase_index();
-            },
+            }
             ActiveMenuState::Time => {
                 self.time_menu.increase_time_on_digit();
-            },
+            }
             _ => {}
         }
     }
@@ -239,13 +224,13 @@ impl UIMenu {
         match self.active_menu_state {
             ActiveMenuState::Power => {
                 self.power_menu.increase_digit();
-            },
+            }
             ActiveMenuState::ReadTags => {
                 self.tag_menu.decrease_index();
-            },
+            }
             ActiveMenuState::Time => {
                 self.time_menu.increase_digit();
-            },
+            }
             _ => {}
         }
     }
@@ -285,11 +270,12 @@ impl UIMenu {
         [Some(header), Some(temperature), None]
     }
 
-    fn get_time_menu_text(&self) -> [Option<String<16>>; 3] {
+    async fn get_time_menu_text(&self) -> [Option<String<16>>; 3] {
         let header = format!(16; "Time").unwrap();
-        let time = todo!("get time");
+        let time = get_current_time().await;
+        let time_since_2000 = time.year_since_1970 - 30;
+        let time_string = format!(16; "{:02}/{:02}/{:02},{:02}:{:02}", time.zero_indexed_month+1, time.zero_indexed_day+1, time_since_2000, time.hours, time.minutes).unwrap();
 
-        todo!("Finish")
+        [Some(header), Some(time_string), None]
     }
-
 }

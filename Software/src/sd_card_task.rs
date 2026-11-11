@@ -121,3 +121,8 @@ pub fn format_epc(epc: &EPC) -> heapless::String<16> {
 
     output
 }
+
+
+pub fn get_stores_rfid(tag_index: usize) -> Option<EPC> {
+    
+}
