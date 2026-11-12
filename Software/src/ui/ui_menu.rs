@@ -12,6 +12,7 @@ use embassy_sync::{
     channel::{Receiver, Sender},
 };
 use embedded_sdmmc::Timestamp;
+use esp_alloc::export::enumset::__internal::set::new;
 use heapless::{String, format};
 
 struct MainMenu {
@@ -30,13 +31,13 @@ struct PowerMenu {
     // "Power Level"
     // changing power level
     power_level_digit: usize,
-    power_digits: [u8; 4],
+    power_digits: [u8; 2],
 }
 
 impl PowerMenu {
     pub fn new(mut power_level: u16) -> Self {
-        let mut power_digits = [0u8; 4];
-        for i in (0..4).rev() {
+        let mut power_digits = [0u8; 2];
+        for i in (0..2).rev() {
             power_digits[i] = (power_level % 10) as u8;
             power_level /= 10;
         }
@@ -47,12 +48,15 @@ impl PowerMenu {
     }
 
     pub fn increase_power_on_digit(&mut self) {
-        self.power_digits[self.power_level_digit] += 1;
+        let max_values = [2, 9];
+
+        self.power_digits[self.power_level_digit] =
+            (self.power_digits[self.power_level_digit] + 1) % (max_values[self.power_level_digit] + 1);
     }
 
     pub fn increase_digit(&mut self) {
         self.power_level_digit += 1;
-        self.power_level_digit %= 4;
+        self.power_level_digit %= 2;
     }
 
     pub fn get_power_level(&self) -> u16 {
@@ -69,13 +73,13 @@ struct ReadTagMenu {
     // "RFID Tags"
     // Scrolling tags
     tag_index: usize,
-    epc_tag_reciever: Receiver<'static, CriticalSectionRawMutex, EPC, 8>,
+    epc_tag_reciever: Receiver<'static, CriticalSectionRawMutex, Option<EPC>, 8>,
     epc_tag_request_sender: Sender<'static, CriticalSectionRawMutex, usize, 8>,
 }
 
 impl ReadTagMenu {
     pub fn new(
-        epc_tag_reciever: Receiver<'static, CriticalSectionRawMutex, EPC, 8>,
+        epc_tag_reciever: Receiver<'static, CriticalSectionRawMutex, Option<EPC>, 8>,
         epc_tag_request_sender: Sender<'static, CriticalSectionRawMutex, usize, 8>,
     ) -> Self {
         Self {
@@ -93,7 +97,7 @@ impl ReadTagMenu {
         self.tag_index -= 1;
     }
 
-    pub async fn get_rfid_tag(&self, offset: usize) -> EPC {
+    pub async fn get_rfid_tag(&self, offset: usize) -> Option<EPC> {
         self.epc_tag_request_sender
             .send(self.tag_index + offset)
             .await;
@@ -127,10 +131,23 @@ impl TimeMenu {
     }
 
     pub fn increase_time_on_digit(&mut self) {
-        let max_values = [1, 9, 9, 9, 9, 9, 2, 3, 5, 9];
+        let max_values = [1, 9, 9, 9, 9, 9, 2, 9, 5, 9];
 
         self.time_digits[self.time_index] =
             (self.time_digits[self.time_index] + 1) % (max_values[self.time_index] + 1);
+        
+        // Ensure hour never goes beyond 23
+        if self.time_index == 7 {
+            let prev_index = self.time_index.saturating_sub(1);
+            if self.time_digits[self.time_index] > 3 && self.time_digits[prev_index] > 1 {
+                self.time_digits[prev_index] = 0;
+            }
+        } else if self.time_index == 6 {
+            let next_index = self.time_index.saturating_add(1);
+            if self.time_digits[self.time_index] > 1 && self.time_digits[next_index] > 3 {
+                self.time_digits[next_index] = 0;
+            }
+        }
 
         self.update_timestamp();
     }
@@ -186,7 +203,7 @@ enum ActiveMenuState {
 
 impl UIMenu {
     pub fn new(
-        epc_tag_reciever: Receiver<'static, CriticalSectionRawMutex, EPC, 8>,
+        epc_tag_reciever: Receiver<'static, CriticalSectionRawMutex, Option<EPC>, 8>,
         epc_tag_request_sender: Sender<'static, CriticalSectionRawMutex, usize, 8>,
     ) -> Self {
         Self {
@@ -266,19 +283,17 @@ impl UIMenu {
             Some(epc) => format_epc(&epc),
             None => format!(16; "no recent tags").unwrap(),
         };
-        let string_3 = format!(16; "power: {}", get_current_power_level()).unwrap();
+        let string_3 = format!(16; "power: {}dB", get_current_power_level() / 100).unwrap();
 
         [Some(string_1), Some(string_2), Some(string_3)]
     }
 
     pub fn get_power_menu_text(&self) -> [Option<String<16>>; 3] {
         let header_string = format!(16; "Power Level").unwrap();
-        let power_level_string = format!(16; "{:04}", get_current_power_level()).unwrap();
+        let power_level_string = format!(16; "{:02}dB", get_current_power_level() / 100).unwrap();
         let cursor_string = match self.power_menu.power_level_digit {
             0 => format!(16; "^   "),
-            1 => format!(16; " ^  "),
-            2 => format!(16; "  ^ "),
-            _ => format!(16; "   ^"),
+            _ => format!(16; " ^  "),
         }
         .unwrap();
 
@@ -290,22 +305,30 @@ impl UIMenu {
     }
 
     pub fn set_power_level_ui(&self) {
-        set_power_level(self.power_menu.get_power_level());
+        set_power_level(self.power_menu.get_power_level() * 100);
     }
 
     pub async fn get_tag_menu_text(&self) -> [Option<String<16>>; 3] {
         let header = format!(16; "RFID Tags").unwrap();
-        let epc_1 = self.tag_menu.get_rfid_tag(0).await.bytes;
-        let epc_2 = self.tag_menu.get_rfid_tag(1).await.bytes;
+        let epc_1_option = self.tag_menu.get_rfid_tag(0).await;
+        let epc_2_option = self.tag_menu.get_rfid_tag(1).await;
         let mut epc_string_1 = heapless::String::<16>::new();
         let mut epc_string_2 = heapless::String::<16>::new();
 
-        for idx in 0..usize::from(epc_1.len()) {
-            write!(epc_string_1, "{:02X} ", epc_1[idx]).unwrap();
+        if let Some(epc_1) = epc_1_option {
+            for idx in 0..usize::from(epc_1.bytes.len()) {
+                write!(epc_string_1, "{:02X} ", epc_1.bytes[idx]).unwrap();
+            }
+        } else {
+            write!(epc_string_1, "END").unwrap();
         }
 
-        for idx in 0..usize::from(epc_2.len()) {
-            write!(epc_string_2, "{:02X} ", epc_2[idx]).unwrap();
+        if let Some(epc_2) = epc_2_option {
+            for idx in 0..usize::from(epc_2.bytes.len()) {
+                write!(epc_string_2, "{:02X} ", epc_2.bytes[idx]).unwrap();
+            }
+        } else {
+            write!(epc_string_2, "END").unwrap();
         }
 
         // We need a scrolling list of RFID tags

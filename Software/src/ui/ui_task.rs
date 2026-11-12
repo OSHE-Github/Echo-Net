@@ -35,7 +35,7 @@ pub static UI_CHANNEL: Channel<CriticalSectionRawMutex, DeviceButton, 16> = Chan
 pub async fn ui_driver_task(
     i2c: I2c<'static, esp_hal::Async>,
     message_reciever: Receiver<'static, CriticalSectionRawMutex, DeviceButton, 16>,
-    epc_tag_reciever: Receiver<'static, CriticalSectionRawMutex, EPC, 8>,
+    epc_tag_reciever: Receiver<'static, CriticalSectionRawMutex, Option<EPC>, 8>,
     epc_tag_request_sender: Sender<'static, CriticalSectionRawMutex, usize, 8>,
 ) {
     let interface = I2CInterface::new(i2c, 0x3C, 0x40);
@@ -43,10 +43,9 @@ pub async fn ui_driver_task(
     let mut display = Ssd1306Async::new(
         interface,
         DisplaySize128x64,
-        ssd1306::rotation::DisplayRotation::Rotate0,
+        ssd1306::rotation::DisplayRotation::Rotate180,
     )
     .into_buffered_graphics_mode();
-    display.set_invert(true).await.unwrap();
 
     // Initialize OLED controller
     display.init().await.unwrap();
