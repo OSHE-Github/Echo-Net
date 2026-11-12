@@ -238,7 +238,6 @@ async fn setup_rfid_module(
 }
 
 fn check_if_unique(tags: &mut Option<HashSet<EPC>>, tag: EPC) -> Result<bool, ()> {
-    tags.unwrap().
     match tags {
         Some(tags) => {
             if tags.contains(&tag) {
@@ -255,4 +254,3 @@ fn check_if_unique(tags: &mut Option<HashSet<EPC>>, tag: EPC) -> Result<bool, ()
     }
 }
 
-fn get_rfid_tag(tag_index_ )

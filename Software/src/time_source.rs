@@ -10,13 +10,14 @@ pub struct DeviceTimeSource {
 
 impl DeviceTimeSource {
     pub const fn new() -> Self {
+        // Default as 2026 Jan 1st 11:11am
         Self {
             timestamp: Timestamp {
-                year_since_1970: 0,
+                year_since_1970: 56,
                 zero_indexed_month: 0,
                 zero_indexed_day: 0,
-                hours: 0,
-                minutes: 0,
+                hours: 11,
+                minutes: 11,
                 seconds: 0
             },
             time_created: None,

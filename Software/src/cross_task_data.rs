@@ -1,6 +1,6 @@
-use core::sync::atomic::{AtomicU16, AtomicU32, Ordering};
+use core::{cell::RefCell, sync::atomic::{AtomicU16, AtomicU32, Ordering}};
 
-use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, mutex::Mutex};
+use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex};
 use embedded_sdmmc::{TimeSource, Timestamp};
 
 use crate::{rfid_task::EPC, time_source::DeviceTimeSource};
@@ -17,7 +17,7 @@ pub fn get_current_bat_amount() -> u32 {
     BATS_READ.load(Ordering::SeqCst)
 }
 
-static LAST_RFID_READ: Mutex<CriticalSectionRawMutex, Option<EPC>> = Mutex::new(Option::None);
+static LAST_RFID_READ: embassy_sync::mutex::Mutex<CriticalSectionRawMutex, Option<EPC>> = embassy_sync::mutex::Mutex::new(Option::None);
 
 pub async fn update_most_recent_epc(epc: &EPC) {
     *LAST_RFID_READ.lock().await = Some(epc.clone());
@@ -50,14 +50,31 @@ pub fn get_current_rfid_module_temperature() -> f32 {
     (temp_f_times_10 as f32) / 10.0f32
 }
 
-static DEVICE_TIME_SOURCE: Mutex<CriticalSectionRawMutex, DeviceTimeSource> =
-    Mutex::new(DeviceTimeSource::new());
+static DEVICE_TIME_SOURCE: embassy_sync::blocking_mutex::Mutex<
+    CriticalSectionRawMutex,
+    RefCell<DeviceTimeSource>,
+> = embassy_sync::blocking_mutex::Mutex::new(
+    RefCell::new(DeviceTimeSource::new())
+);
 
-pub async fn update_device_time(timestamp: Timestamp) {
-    let mut device_time_source = DEVICE_TIME_SOURCE.lock().await;
-    device_time_source.set_time(timestamp);
+pub struct SharedDeviceTimeSource;
+
+impl TimeSource for SharedDeviceTimeSource {
+    fn get_timestamp(&self) -> Timestamp {
+        DEVICE_TIME_SOURCE.lock(|source| {
+            source.borrow().get_timestamp()
+        })
+    }
 }
 
-pub async fn get_current_time() -> Timestamp {
-    DEVICE_TIME_SOURCE.lock().await.get_timestamp().clone()
+pub fn update_device_time(timestamp: Timestamp) {
+    DEVICE_TIME_SOURCE.lock(|source| {
+        source.borrow_mut().set_time(timestamp);
+    });
+}
+
+pub fn get_current_time() -> Timestamp {
+    DEVICE_TIME_SOURCE.lock(|source| {
+        source.borrow().get_timestamp()
+    })
 }

@@ -1,12 +1,12 @@
 use core::fmt::Write;
-use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Receiver};
+use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::{Receiver, Sender}};
 use embassy_time::Delay;
 use embedded_hal_bus::spi::ExclusiveDevice;
-use embedded_sdmmc::{Mode, SdCard, VolumeIdx, VolumeManager};
+use embedded_sdmmc::{BlockDevice, Mode, RawDirectory, SdCard, TimeSource, VolumeIdx, VolumeManager};
 use esp_hal::{Blocking, gpio::Output, spi::master::Spi};
 use esp_println::println;
 
-use crate::{rfid_task::{EPC, RFIDTag}, time_source::DeviceTimeSource};
+use crate::{cross_task_data::SharedDeviceTimeSource, rfid_task::{EPC, RFIDTag}};
 
 const ECHO_NET_DIRECTORY: &'static str = "ECHONET";
 
@@ -14,9 +14,11 @@ const ECHO_NET_DIRECTORY: &'static str = "ECHONET";
 pub async fn sd_card_task(
     volume_manager: VolumeManager<
         SdCard<ExclusiveDevice<Spi<'static, Blocking>, Output<'static>, Delay>, Delay>,
-        DeviceTimeSource,
+        SharedDeviceTimeSource,
     >,
     rfid_data_reciever: Receiver<'static, CriticalSectionRawMutex, RFIDTag, 16>,
+    epc_tag_request_reciever: Receiver<'static, CriticalSectionRawMutex, usize, 8>,
+    epc_tag_sender: Sender<'static, CriticalSectionRawMutex, EPC, 8>,
 ) {
     let volume = volume_manager.open_volume(VolumeIdx(0)).unwrap();
 
@@ -74,14 +76,23 @@ pub async fn sd_card_task(
     println!("File created");
 
     loop {
-        let rfid_data = rfid_data_reciever.receive().await;
-        let log_entry = format_rfid_data(&rfid_data);
-        let file = volume_manager
-            .open_file_in_dir(echo_net_dir, filename.as_str(), Mode::ReadWriteAppend)
-            .unwrap()
-            .to_file(&volume_manager);
-        file.write(log_entry.as_bytes()).unwrap();
-        volume_manager.close_file(file.to_raw_file()).unwrap();
+        match embassy_futures::select::select(rfid_data_reciever.receive(), epc_tag_request_reciever.receive()).await {
+            embassy_futures::select::Either::First(rfid_data) => {
+                let log_entry = format_rfid_data(&rfid_data);
+                let file = volume_manager
+                    .open_file_in_dir(echo_net_dir, filename.as_str(), Mode::ReadWriteAppend)
+                    .unwrap()
+                    .to_file(&volume_manager);
+                file.write(log_entry.as_bytes()).unwrap();
+                volume_manager.close_file(file.to_raw_file()).unwrap();
+            },
+            embassy_futures::select::Either::Second(tag_index) => {
+                let epc_result = get_stored_rfid(&volume_manager, echo_net_dir, filename.as_str(), tag_index);
+                if let Ok(Some(epc)) = epc_result {
+                    epc_tag_sender.send(epc).await;
+                }
+            }
+        }
     }
 }
 
@@ -123,6 +134,126 @@ pub fn format_epc(epc: &EPC) -> heapless::String<16> {
 }
 
 
-pub fn get_stores_rfid(tag_index: usize) -> Option<EPC> {
-    
+
+pub fn get_stored_rfid<D, T>(
+    volume_manager: &VolumeManager<D, T>,
+    directory: RawDirectory,
+    filename: &str,
+    tag_index: usize,
+) -> Result<Option<EPC>, ()>
+where
+    D: BlockDevice,
+    T: TimeSource,
+{
+    let file = volume_manager.open_file_in_dir(
+        directory,
+        filename,
+        Mode::ReadOnly,
+    ).unwrap();
+
+    // Read the file in small chunks.
+    let result = (|| {
+        let mut buffer = [0u8; 64];
+        let mut line_index = 0usize;
+
+        let mut marker_index = 0usize;
+        let marker = b"EPC[";
+
+        let mut found_marker = false;
+        let mut epc_bytes = heapless::Vec::<u8, 12>::new();
+        let mut high_nibble: Option<u8> = None;
+
+        loop {
+            let bytes_read = volume_manager.read(file, &mut buffer).unwrap();
+
+            if bytes_read == 0 {
+                return Ok(None);
+            }
+
+            for &byte in &buffer[..bytes_read] {
+                // Only process the requested line.
+                if line_index > tag_index {
+                    return Ok(None);
+                }
+
+                // Move to the next line.
+                if byte == b'\n' {
+                    if line_index == tag_index {
+                        return Ok(None);
+                    }
+
+                    line_index += 1;
+                    marker_index = 0;
+                    found_marker = false;
+                    high_nibble = None;
+                    epc_bytes.clear();
+
+                    continue;
+                }
+
+                // Ignore lines before the requested index.
+                if line_index != tag_index {
+                    continue;
+                }
+
+                // Find "EPC[".
+                if !found_marker {
+                    if byte == marker[marker_index] {
+                        marker_index += 1;
+
+                        if marker_index == marker.len() {
+                            found_marker = true;
+                        }
+                    } else {
+                        marker_index = if byte == marker[0] {
+                            1
+                        } else {
+                            0
+                        };
+                    }
+
+                    continue;
+                }
+
+                // Found the closing bracket.
+                if byte == b']' {
+                    if high_nibble.is_some() || epc_bytes.len() != 12 {
+                        return Ok(None);
+                    }
+
+                    return Ok(Some(EPC::new(epc_bytes)));
+                }
+
+                // Ignore spaces and carriage returns.
+                if byte == b' ' || byte == b'\r' || byte == b'\t' {
+                    continue;
+                }
+
+                // Convert hexadecimal character into a nibble.
+                let nibble = match byte {
+                    b'0'..=b'9' => byte - b'0',
+                    b'a'..=b'f' => byte - b'a' + 10,
+                    b'A'..=b'F' => byte - b'A' + 10,
+                    _ => return Ok(None),
+                };
+
+                if let Some(high) = high_nibble.take() {
+                    let value = (high << 4) | nibble;
+
+                    if epc_bytes.push(value).is_err() {
+                        return Ok(None);
+                    }
+                } else {
+                    high_nibble = Some(nibble);
+                }
+            }
+        }
+    })();
+
+    // Always close the file, including when reading fails.
+    let _ = volume_manager.close_file(file).unwrap();
+
+    let epc = result?;
+
+    Ok(epc)
 }

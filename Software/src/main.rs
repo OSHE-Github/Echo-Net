@@ -31,10 +31,7 @@ use esp_println::println;
 use log::error;
 
 use crate::{
-    rfid_task::{RFID_CHANNEL, RfidInitData, rfid_task},
-    sd_card_task::sd_card_task,
-    time_source::{DeviceTimeSource, DummyTimeSource},
-    ui::ui_task::{DeviceButton, UI_CHANNEL, ui_driver_task},
+    cross_task_data::set_power_level, rfid_task::{RFID_CHANNEL, RfidInitData}, sd_card_task::sd_card_task, time_source::DeviceTimeSource, ui::ui_task::{DeviceButton, UI_CHANNEL, ui_driver_task},
 };
 
 #[panic_handler]
@@ -131,8 +128,8 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
     let spi_dev = ExclusiveDevice::new(spi_bus, cs, embassy_time::Delay).unwrap();
     let sd_card = SdCard::new(spi_dev, embassy_time::Delay);
 
-    let volume_manager = VolumeManager::new(sd_card, DeviceTimeSource::new());
-
+    let volume_manager = VolumeManager::new(sd_card, cross_task_data::SharedDeviceTimeSource);
+    set_power_level(1000);
     // spawner.spawn(rfid_task(rfid_data, RFID_CHANNEL.sender()).unwrap());
     spawner.spawn(sd_card_task(volume_manager, RFID_CHANNEL.receiver()).unwrap());
     spawner.spawn(ui_driver_task(i2c_line, UI_CHANNEL.receiver()).unwrap());
@@ -140,7 +137,7 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
     let sender = UI_CHANNEL.sender();
 
     loop {
-        match embassy_futures::select::select4(
+        let button_option = match embassy_futures::select::select4(
             button_s1.wait_for_any_edge(),
             button_s2.wait_for_falling_edge(),
             button_s3.wait_for_falling_edge(),
@@ -149,17 +146,46 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
         .await
         {
             embassy_futures::select::Either4::First(_) => {
-                let _ = sender.try_send(DeviceButton::TriggerButton);
-            }
+                let button_state = button_s1.level();
+                embassy_time::Timer::after_millis(5).await;
+                // Make sure it's not bouncing
+                if button_s1.level() == button_state {
+                    Some(DeviceButton::TriggerButton)
+                } else {
+                    None
+                }
+            },
             embassy_futures::select::Either4::Second(_) => {
-                let _ = sender.try_send(DeviceButton::MenuButton);
-            }
+                embassy_time::Timer::after_millis(5).await;
+                if button_s2.is_low() {
+                    Some(DeviceButton::MenuButton)
+                } else {
+                    None
+                }
+            },
             embassy_futures::select::Either4::Third(_) => {
-                let _ = sender.try_send(DeviceButton::PlusButton);
-            }
+                embassy_time::Timer::after_millis(5).await;
+                if button_s3.is_low() {
+                    Some(DeviceButton::PlusButton)
+                } else {
+                    None
+                }
+            },
             embassy_futures::select::Either4::Fourth(_) => {
-                let _ = sender.try_send(DeviceButton::LockButton);
-            }
+                embassy_time::Timer::after_millis(5).await;
+                if button_s4.is_low() {
+                    Some(DeviceButton::LockButton)
+                } else {
+                    None
+                }
+            },
+        };
+
+        if let Some(button) = button_option {
+            let _ = sender.try_send(button);
         }
+
+        // Debounce interval
+        embassy_time::Timer::after_millis(50).await;
     }
 }

@@ -3,11 +3,8 @@ use heapless::{String, format};
 
 use crate::{
     cross_task_data::{
-        get_current_bat_amount, get_current_power_level, get_current_time, get_most_recent_epc,
-        set_power_level,
-    },
-    sd_card_task::format_epc,
-    time_source::DeviceTimeSource,
+        get_current_bat_amount, get_current_power_level, get_current_time, get_most_recent_epc, set_power_level, update_device_time,
+    }, sd_card_task::format_epc, time_source::DeviceTimeSource,
 };
 
 struct MainMenu {
@@ -94,54 +91,58 @@ struct TimeMenu {
     // Currently selected digit (0-7)
     time_index: usize,
 
-    // YY MM DD HH
-    time_digits: [u8; 8],
+    // YY MM DD HH MM
+    time_digits: [u8; 10],
 }
 
 impl TimeMenu {
     pub fn new() -> Self {
         Self {
             time_index: 0,
-            time_digits: [0; 8],
+            time_digits: [0; 10],
         }
     }
 
     pub fn increase_digit(&mut self) {
-        self.time_index = (self.time_index + 1) % 8;
+        self.time_index = (self.time_index + 1) % 10;
     }
 
     pub fn increase_time_on_digit(&mut self) {
-        let max_values = [9, 9, 1, 9, 3, 9, 2, 3];
+        let max_values = [1, 9, 9, 9, 9, 9, 2, 3, 5, 9];
 
         self.time_digits[self.time_index] =
             (self.time_digits[self.time_index] + 1) % (max_values[self.time_index] + 1);
+
+        self.update_timestamp();
     }
 
     pub fn get_time(&self) -> String<16> {
         let time = format!(16;
-            "{:02}{:02}{:02}{:02}",
+            "{:02}/{:02}/{:02},{:02}:{:02}",
             self.time_digits[0] * 10 + self.time_digits[1],
             self.time_digits[2] * 10 + self.time_digits[3],
             self.time_digits[4] * 10 + self.time_digits[5],
             self.time_digits[6] * 10 + self.time_digits[7],
+            self.time_digits[8] * 10 + self.time_digits[9],
         )
         .unwrap();
 
         time
     }
 
-    pub fn update_timestamp(&self, time_source: &mut DeviceTimeSource) {
-        let year = self.time_digits[0] * 10 + self.time_digits[1];
-        let month = self.time_digits[2] * 10 + self.time_digits[3];
-        let day = self.time_digits[4] * 10 + self.time_digits[5];
+    pub fn update_timestamp(&self) {
+        let month = self.time_digits[0] * 10 + self.time_digits[1];
+        let day = self.time_digits[2] * 10 + self.time_digits[3];
+        let year = self.time_digits[4] * 10 + self.time_digits[5];
         let hour = self.time_digits[6] * 10 + self.time_digits[7];
+        let minute = self.time_digits[8] * 10 + self.time_digits[9];
 
-        time_source.set_time(Timestamp {
-            year_since_1970: year,
-            zero_indexed_month: month - 1,
-            zero_indexed_day: day - 1,
+        update_device_time(Timestamp {
+            year_since_1970: year.saturating_add(30),
+            zero_indexed_month: month.saturating_sub(1),
+            zero_indexed_day: day.saturating_sub(1),
             hours: hour,
-            minutes: 0,
+            minutes: minute,
             seconds: 0,
         });
     }
@@ -193,7 +194,7 @@ impl UIMenu {
             ActiveMenuState::Power => self.get_power_menu_text(),
             ActiveMenuState::ReadTags => self.get_tag_menu_text(),
             ActiveMenuState::Temp => self.get_temp_menu_text(),
-            ActiveMenuState::Time => self.get_time_menu_text(),
+            ActiveMenuState::Time => self.get_time_menu_text().await,
         }
     }
 
@@ -218,6 +219,7 @@ impl UIMenu {
             }
             _ => {}
         }
+        self.set_power_level_ui();
     }
 
     pub fn press_lock_button(&mut self) {
@@ -249,18 +251,26 @@ impl UIMenu {
 
     pub fn get_power_menu_text(&self) -> [Option<String<16>>; 3] {
         let header_string = format!(16; "Power Level").unwrap();
-        let power_level_string = format!(16; "{}", get_current_power_level()).unwrap();
+        let power_level_string = format!(16; "{:04}", get_current_power_level()).unwrap();
+        let cursor_string = match self.power_menu.power_level_digit {
+            0 => format!(16; "^   "),
+            1 => format!(16; " ^  "),
+            2 => format!(16; "  ^ "),
+            _ => format!(16; "   ^"),
+        }.unwrap();
 
-        [Some(header_string), Some(power_level_string), None]
+        [Some(header_string), Some(power_level_string), Some(cursor_string)]
     }
 
-    pub fn set_power_level() {}
+    pub fn set_power_level_ui(&self) {
+        set_power_level(self.power_menu.get_power_level());
+    }
 
     pub fn get_tag_menu_text(&self) -> [Option<String<16>>; 3] {
         let header = format!(16; "RFID Tags").unwrap();
 
         // We need a scrolling list of RFID tags
-        todo!("Figure out scrolling list of RFID tags")
+        [Some(header), None, None]
     }
 
     pub fn get_temp_menu_text(&self) -> [Option<String<16>>; 3] {
@@ -272,10 +282,25 @@ impl UIMenu {
 
     async fn get_time_menu_text(&self) -> [Option<String<16>>; 3] {
         let header = format!(16; "Time").unwrap();
-        let time = get_current_time().await;
-        let time_since_2000 = time.year_since_1970 - 30;
-        let time_string = format!(16; "{:02}/{:02}/{:02},{:02}:{:02}", time.zero_indexed_month+1, time.zero_indexed_day+1, time_since_2000, time.hours, time.minutes).unwrap();
+        let time = get_current_time().clone();
+        let time_since_2000 = time.year_since_1970.saturating_sub(30);
+        // let time_string = format!(16; "{:02}/{:02}", time.zero_indexed_month+1, time_since_2000).unwrap();
+        let time_string = format!(16; "{:02}/{:02}/{:02},{:02}:{:02}", 
+            time.zero_indexed_month.saturating_add(1), time.zero_indexed_day.saturating_add(1), time_since_2000, time.hours, time.minutes).unwrap_or(format!(16; " a ").unwrap());
 
-        [Some(header), Some(time_string), None]
+        let cursor_string = match self.time_menu.time_index {
+            0 => format!(16; "^             "),
+            1 => format!(16; " ^            "),
+            2 => format!(16; "   ^          "),
+            3 => format!(16; "    ^         "),
+            4 => format!(16; "      ^       "),
+            5 => format!(16; "       ^      "),
+            6 => format!(16; "         ^    "),
+            7 => format!(16; "          ^   "),
+            8 => format!(16; "            ^ "),
+            _ => format!(16; "             ^"),
+        }.unwrap();
+
+        [Some(header), Some(time_string), Some(cursor_string)]
     }
 }

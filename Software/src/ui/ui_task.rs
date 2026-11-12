@@ -8,6 +8,7 @@ use embedded_graphics::{
 };
 use esp_hal::i2c::master::I2c;
 use esp_println::println;
+use heapless::format;
 use ssd1306::{
     Ssd1306Async, mode::DisplayConfigAsync, prelude::I2CInterface, size::DisplaySize128x64,
 };
@@ -35,6 +36,7 @@ pub async fn ui_driver_task(i2c: I2c<'static, esp_hal::Async>,
         ssd1306::rotation::DisplayRotation::Rotate0,
     )
     .into_buffered_graphics_mode();
+    display.set_invert(true).await.unwrap();
 
     // Initialize OLED controller
     display.init().await.unwrap();
@@ -56,6 +58,23 @@ pub async fn ui_driver_task(i2c: I2c<'static, esp_hal::Async>,
     let rfid_reading_sender = RFID_SCANNING_ENABLED.sender();
 
     loop {
+        display.clear_buffer();
+
+
+        let [string1, string2, string3] = ui_menu.get_display().await;
+        
+        // Write text
+        Text::new(&string1.unwrap_or(format!(16; " ").unwrap()), Point::new(0, 16), text_style)
+            .draw(&mut display)
+            .unwrap();
+        Text::new(&string2.unwrap_or(format!(16; " ").unwrap()), Point::new(0, 32), text_style)
+            .draw(&mut display)
+            .unwrap();
+        Text::new(&string3.unwrap_or(format!(16; " ").unwrap()), Point::new(0, 48), text_style)
+            .draw(&mut display)
+            .unwrap();
+
+        display.flush().await.unwrap();
         let button = message_reciever.receive().await;
 
         match button {
@@ -74,15 +93,5 @@ pub async fn ui_driver_task(i2c: I2c<'static, esp_hal::Async>,
                 ui_menu.press_lock_button();
             },
         }
-        // display.clear_buffer();
-        
-        // // Write text
-        // Text::new(message, Point::new(0, 16), text_style)
-        //     .draw(&mut display)
-        //     .unwrap();
-
-        // // Send framebuffer to the display
-        // display.flush().await.unwrap();
-
     }
 }
