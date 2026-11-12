@@ -7,6 +7,7 @@
 )]
 #![deny(clippy::large_stack_frames)]
 
+use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel};
 use embedded_hal_bus::spi::ExclusiveDevice;
 use embedded_sdmmc::{SdCard, VolumeManager};
 use esp_hal::{
@@ -31,7 +32,10 @@ use esp_println::println;
 use log::error;
 
 use crate::{
-    cross_task_data::set_power_level, rfid_task::{RFID_CHANNEL, RfidInitData}, sd_card_task::sd_card_task, time_source::DeviceTimeSource, ui::ui_task::{DeviceButton, UI_CHANNEL, ui_driver_task},
+    cross_task_data::set_power_level,
+    rfid_task::{EPC, RFID_CHANNEL, RfidInitData},
+    sd_card_task::sd_card_task,
+    ui::ui_task::{DeviceButton, UI_CHANNEL, ui_driver_task},
 };
 
 #[panic_handler]
@@ -129,10 +133,28 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
     let sd_card = SdCard::new(spi_dev, embassy_time::Delay);
 
     let volume_manager = VolumeManager::new(sd_card, cross_task_data::SharedDeviceTimeSource);
+    static EPC_REQUESTER_CHANNEL: Channel<CriticalSectionRawMutex, usize, 8> = Channel::new();
+    static EPC_TAG_CHANNEL: Channel<CriticalSectionRawMutex, EPC, 8> = Channel::new();
     set_power_level(1000);
     // spawner.spawn(rfid_task(rfid_data, RFID_CHANNEL.sender()).unwrap());
-    spawner.spawn(sd_card_task(volume_manager, RFID_CHANNEL.receiver()).unwrap());
-    spawner.spawn(ui_driver_task(i2c_line, UI_CHANNEL.receiver()).unwrap());
+    spawner.spawn(
+        sd_card_task(
+            volume_manager,
+            RFID_CHANNEL.receiver(),
+            EPC_REQUESTER_CHANNEL.receiver(),
+            EPC_TAG_CHANNEL.sender(),
+        )
+        .unwrap(),
+    );
+    spawner.spawn(
+        ui_driver_task(
+            i2c_line,
+            UI_CHANNEL.receiver(),
+            EPC_TAG_CHANNEL.receiver(),
+            EPC_REQUESTER_CHANNEL.sender(),
+        )
+        .unwrap(),
+    );
 
     let sender = UI_CHANNEL.sender();
 
@@ -154,7 +176,7 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
                 } else {
                     None
                 }
-            },
+            }
             embassy_futures::select::Either4::Second(_) => {
                 embassy_time::Timer::after_millis(5).await;
                 if button_s2.is_low() {
@@ -162,7 +184,7 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
                 } else {
                     None
                 }
-            },
+            }
             embassy_futures::select::Either4::Third(_) => {
                 embassy_time::Timer::after_millis(5).await;
                 if button_s3.is_low() {
@@ -170,7 +192,7 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
                 } else {
                     None
                 }
-            },
+            }
             embassy_futures::select::Either4::Fourth(_) => {
                 embassy_time::Timer::after_millis(5).await;
                 if button_s4.is_low() {
@@ -178,7 +200,7 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
                 } else {
                     None
                 }
-            },
+            }
         };
 
         if let Some(button) = button_option {

@@ -1,11 +1,18 @@
-use embedded_sdmmc::Timestamp;
-use heapless::{String, format};
-
 use crate::{
     cross_task_data::{
-        get_current_bat_amount, get_current_power_level, get_current_time, get_most_recent_epc, set_power_level, update_device_time,
-    }, sd_card_task::format_epc, time_source::DeviceTimeSource,
+        get_current_bat_amount, get_current_power_level, get_current_time, get_most_recent_epc,
+        set_power_level, update_device_time,
+    },
+    rfid_task::EPC,
+    sd_card_task::format_epc,
 };
+use core::fmt::Write;
+use embassy_sync::{
+    blocking_mutex::raw::CriticalSectionRawMutex,
+    channel::{Receiver, Sender},
+};
+use embedded_sdmmc::Timestamp;
+use heapless::{String, format};
 
 struct MainMenu {
     // Bat amount read this session
@@ -62,11 +69,20 @@ struct ReadTagMenu {
     // "RFID Tags"
     // Scrolling tags
     tag_index: usize,
+    epc_tag_reciever: Receiver<'static, CriticalSectionRawMutex, EPC, 8>,
+    epc_tag_request_sender: Sender<'static, CriticalSectionRawMutex, usize, 8>,
 }
 
 impl ReadTagMenu {
-    pub fn new() -> Self {
-        Self { tag_index: 0 }
+    pub fn new(
+        epc_tag_reciever: Receiver<'static, CriticalSectionRawMutex, EPC, 8>,
+        epc_tag_request_sender: Sender<'static, CriticalSectionRawMutex, usize, 8>,
+    ) -> Self {
+        Self {
+            tag_index: 0,
+            epc_tag_reciever,
+            epc_tag_request_sender,
+        }
     }
 
     pub fn increase_index(&mut self) {
@@ -77,8 +93,11 @@ impl ReadTagMenu {
         self.tag_index -= 1;
     }
 
-    pub fn get_index(&self) -> usize {
-        self.tag_index
+    pub async fn get_rfid_tag(&self, offset: usize) -> EPC {
+        self.epc_tag_request_sender
+            .send(self.tag_index + offset)
+            .await;
+        self.epc_tag_reciever.receive().await
     }
 }
 
@@ -166,13 +185,16 @@ enum ActiveMenuState {
 }
 
 impl UIMenu {
-    pub fn new() -> Self {
+    pub fn new(
+        epc_tag_reciever: Receiver<'static, CriticalSectionRawMutex, EPC, 8>,
+        epc_tag_request_sender: Sender<'static, CriticalSectionRawMutex, usize, 8>,
+    ) -> Self {
         Self {
             // Start on the main screen
             active_menu_state: ActiveMenuState::Main,
             // State data
             power_menu: PowerMenu::new(get_current_power_level()),
-            tag_menu: ReadTagMenu::new(),
+            tag_menu: ReadTagMenu::new(epc_tag_reciever, epc_tag_request_sender),
             time_menu: TimeMenu::new(),
         }
     }
@@ -192,7 +214,7 @@ impl UIMenu {
         match self.active_menu_state {
             ActiveMenuState::Main => self.get_main_menu_text().await,
             ActiveMenuState::Power => self.get_power_menu_text(),
-            ActiveMenuState::ReadTags => self.get_tag_menu_text(),
+            ActiveMenuState::ReadTags => self.get_tag_menu_text().await,
             ActiveMenuState::Temp => self.get_temp_menu_text(),
             ActiveMenuState::Time => self.get_time_menu_text().await,
         }
@@ -257,20 +279,37 @@ impl UIMenu {
             1 => format!(16; " ^  "),
             2 => format!(16; "  ^ "),
             _ => format!(16; "   ^"),
-        }.unwrap();
+        }
+        .unwrap();
 
-        [Some(header_string), Some(power_level_string), Some(cursor_string)]
+        [
+            Some(header_string),
+            Some(power_level_string),
+            Some(cursor_string),
+        ]
     }
 
     pub fn set_power_level_ui(&self) {
         set_power_level(self.power_menu.get_power_level());
     }
 
-    pub fn get_tag_menu_text(&self) -> [Option<String<16>>; 3] {
+    pub async fn get_tag_menu_text(&self) -> [Option<String<16>>; 3] {
         let header = format!(16; "RFID Tags").unwrap();
+        let epc_1 = self.tag_menu.get_rfid_tag(0).await.bytes;
+        let epc_2 = self.tag_menu.get_rfid_tag(1).await.bytes;
+        let mut epc_string_1 = heapless::String::<16>::new();
+        let mut epc_string_2 = heapless::String::<16>::new();
+
+        for idx in 0..usize::from(epc_1.len()) {
+            write!(epc_string_1, "{:02X} ", epc_1[idx]).unwrap();
+        }
+
+        for idx in 0..usize::from(epc_2.len()) {
+            write!(epc_string_2, "{:02X} ", epc_2[idx]).unwrap();
+        }
 
         // We need a scrolling list of RFID tags
-        [Some(header), None, None]
+        [Some(header), Some(epc_string_1), Some(epc_string_2)]
     }
 
     pub fn get_temp_menu_text(&self) -> [Option<String<16>>; 3] {
@@ -299,7 +338,8 @@ impl UIMenu {
             7 => format!(16; "          ^   "),
             8 => format!(16; "            ^ "),
             _ => format!(16; "             ^"),
-        }.unwrap();
+        }
+        .unwrap();
 
         [Some(header), Some(time_string), Some(cursor_string)]
     }
