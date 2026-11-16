@@ -8,21 +8,18 @@
 #![deny(clippy::large_stack_frames)]
 
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel};
+use embassy_time::Timer;
 use embedded_hal_bus::spi::ExclusiveDevice;
 use embedded_sdmmc::{SdCard, VolumeManager};
 use esp_hal::{
-    clock::CpuClock,
-    gpio::{InputConfig, Pull},
-    i2c::master::I2c,
-    spi::{self, master::Spi},
-    time::Rate,
-    timer::timg::TimerGroup,
+    Config, clock::CpuClock, gpio::{InputConfig, Level, Output, OutputConfig, Pull}, i2c::master::I2c, spi::{self, master::Spi}, time::Rate, timer::timg::TimerGroup,
 };
 
 // Folders
 pub mod rfid_module;
 pub mod ui;
 // Files
+pub mod battery_life_testing;
 pub mod cross_task_data;
 pub mod rfid_task;
 pub mod sd_card_task;
@@ -32,10 +29,7 @@ use esp_println::println;
 use log::error;
 
 use crate::{
-    cross_task_data::set_power_level,
-    rfid_task::{EPC, RFID_CHANNEL, RfidInitData},
-    sd_card_task::sd_card_task,
-    ui::ui_task::{DeviceButton, UI_CHANNEL, ui_driver_task},
+    battery_life_testing::battery_life_task, cross_task_data::set_power_level, rfid_task::{EPC, RFID_CHANNEL, RfidInitData}, sd_card_task::sd_card_task, ui::ui_task::{DeviceButton, UI_CHANNEL, ui_driver_task},
 };
 
 #[panic_handler]
@@ -72,30 +66,7 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
 
     esp_rtos::start(timg0.timer0, sw_ints.software_interrupt0);
 
-    // Buttons
-    let mut button_s1 = esp_hal::gpio::Input::new(
-        peripherals.GPIO7,
-        InputConfig::default().with_pull(Pull::Up),
-    );
-    let mut button_s2 = esp_hal::gpio::Input::new(
-        peripherals.GPIO8,
-        InputConfig::default().with_pull(Pull::Up),
-    );
-    let mut button_s3 = esp_hal::gpio::Input::new(
-        peripherals.GPIO9,
-        InputConfig::default().with_pull(Pull::Up),
-    );
-    let mut button_s4 = esp_hal::gpio::Input::new(
-        peripherals.GPIO10,
-        InputConfig::default().with_pull(Pull::Up),
-    );
-
-    let rfid_data = RfidInitData {
-        baud_rate: BAUD_RATE,
-        uart: peripherals.UART0,
-        rx: peripherals.GPIO5,
-        tx: peripherals.GPIO6,
-    };
+    let mut pin_d8 = Output::new(peripherals.GPIO17, Level::Low, OutputConfig::default());
 
     // SD card spi bus
     let mut spi_bus = Spi::new(
@@ -159,59 +130,13 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
         )
         .unwrap(),
     );
-
-    let sender = UI_CHANNEL.sender();
+    spawner.spawn(battery_life_task(UI_CHANNEL.sender(), RFID_CHANNEL.sender()).unwrap());
 
     loop {
-        let button_option = match embassy_futures::select::select4(
-            button_s1.wait_for_any_edge(),
-            button_s2.wait_for_falling_edge(),
-            button_s3.wait_for_falling_edge(),
-            button_s4.wait_for_falling_edge(),
-        )
-        .await
-        {
-            embassy_futures::select::Either4::First(_) => {
-                let button_state = button_s1.level();
-                embassy_time::Timer::after_millis(5).await;
-                // Make sure it's not bouncing
-                if button_s1.level() == button_state {
-                    Some(DeviceButton::TriggerButton)
-                } else {
-                    None
-                }
-            }
-            embassy_futures::select::Either4::Second(_) => {
-                embassy_time::Timer::after_millis(5).await;
-                if button_s2.is_low() {
-                    Some(DeviceButton::MenuButton)
-                } else {
-                    None
-                }
-            }
-            embassy_futures::select::Either4::Third(_) => {
-                embassy_time::Timer::after_millis(5).await;
-                if button_s3.is_low() {
-                    Some(DeviceButton::PlusButton)
-                } else {
-                    None
-                }
-            }
-            embassy_futures::select::Either4::Fourth(_) => {
-                embassy_time::Timer::after_millis(5).await;
-                if button_s4.is_low() {
-                    Some(DeviceButton::LockButton)
-                } else {
-                    None
-                }
-            }
-        };
-
-        if let Some(button) = button_option {
-            let _ = sender.try_send(button);
-        }
-
-        // Debounce interval
-        embassy_time::Timer::after_millis(50).await;
+        pin_d8.set_high();
+        Timer::after_secs(15).await;
+        pin_d8.set_low();
+        Timer::after_secs(45).await;
     }
 }
+
