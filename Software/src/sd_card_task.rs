@@ -19,6 +19,7 @@ pub async fn sd_card_task(
     rfid_data_reciever: Receiver<'static, CriticalSectionRawMutex, RFIDTag, 16>,
     epc_tag_request_reciever: Receiver<'static, CriticalSectionRawMutex, usize, 8>,
     epc_tag_sender: Sender<'static, CriticalSectionRawMutex, Option<EPC>, 8>,
+    startup_sender: Sender<'static, CriticalSectionRawMutex, bool, 8>,
 ) {
     let volume = volume_manager.open_volume(VolumeIdx(0)).unwrap();
 
@@ -74,6 +75,8 @@ pub async fn sd_card_task(
     volume_manager.close_file(file).unwrap();
 
     println!("File created");
+
+    startup_sender.send(true).await;
 
     loop {
         match embassy_futures::select::select(rfid_data_reciever.receive(), epc_tag_request_reciever.receive()).await {

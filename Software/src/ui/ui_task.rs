@@ -36,6 +36,7 @@ pub async fn ui_driver_task(
     i2c: I2c<'static, esp_hal::Async>,
     message_reciever: Receiver<'static, CriticalSectionRawMutex, DeviceButton, 16>,
     epc_tag_reciever: Receiver<'static, CriticalSectionRawMutex, Option<EPC>, 8>,
+    startup_reciever: Receiver<'static, CriticalSectionRawMutex, bool, 8>,
     epc_tag_request_sender: Sender<'static, CriticalSectionRawMutex, usize, 8>,
 ) {
     let interface = I2CInterface::new(i2c, 0x3C, 0x40);
@@ -53,18 +54,41 @@ pub async fn ui_driver_task(
 
     let text_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
 
-    // Write text
-    Text::new("Hello world", Point::new(0, 16), text_style)
-        .draw(&mut display)
-        .unwrap();
-
-    // Send framebuffer to the display
-    display.flush().await.unwrap();
-
     let mut ui_menu = UIMenu::new(epc_tag_reciever, epc_tag_request_sender);
 
     let mut currently_reading = false;
     let rfid_reading_sender = RFID_SCANNING_ENABLED.sender();
+    display.clear_buffer();
+
+    let [string1, string2, string3] = ui_menu.get_display().await;
+    // Write text
+    Text::new(
+        &string1.unwrap_or(format!(16; " ").unwrap()),
+        Point::new(0, 16),
+        text_style,
+    )
+    .draw(&mut display)
+    .unwrap();
+
+    Text::new(
+        &string2.unwrap_or(format!(16; " ").unwrap()),
+        Point::new(0, 32),
+        text_style,
+    )
+    .draw(&mut display)
+    .unwrap();
+    Text::new(
+        &string3.unwrap_or(format!(16; " ").unwrap()),
+        Point::new(0, 48),
+        text_style,
+    )
+    .draw(&mut display)
+    .unwrap();
+    display.flush().await.unwrap();
+
+    startup_reciever.receive().await;
+    println!("Startup recieved!");
+    ui_menu.load();
 
     loop {
         display.clear_buffer();

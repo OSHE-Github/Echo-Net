@@ -194,6 +194,7 @@ pub struct UIMenu {
 }
 
 enum ActiveMenuState {
+    Loading,
     Main,
     Power,
     ReadTags,
@@ -208,7 +209,7 @@ impl UIMenu {
     ) -> Self {
         Self {
             // Start on the main screen
-            active_menu_state: ActiveMenuState::Main,
+            active_menu_state: ActiveMenuState::Loading,
             // State data
             power_menu: PowerMenu::new(get_current_power_level()),
             tag_menu: ReadTagMenu::new(epc_tag_reciever, epc_tag_request_sender),
@@ -216,9 +217,14 @@ impl UIMenu {
         }
     }
 
+    pub fn load(&mut self) {
+        self.active_menu_state = ActiveMenuState::Main;
+    }
+
     // Move to the next menu mode
     pub fn next(&mut self) {
         match self.active_menu_state {
+            ActiveMenuState::Loading => self.active_menu_state = ActiveMenuState::Loading,
             ActiveMenuState::Main => self.active_menu_state = ActiveMenuState::Power,
             ActiveMenuState::Power => self.active_menu_state = ActiveMenuState::ReadTags,
             ActiveMenuState::ReadTags => self.active_menu_state = ActiveMenuState::Temp,
@@ -229,6 +235,7 @@ impl UIMenu {
 
     pub async fn get_display(&self) -> [Option<String<16>>; 3] {
         match self.active_menu_state {
+            ActiveMenuState::Loading => self.get_loading_text(),
             ActiveMenuState::Main => self.get_main_menu_text().await,
             ActiveMenuState::Power => self.get_power_menu_text(),
             ActiveMenuState::ReadTags => self.get_tag_menu_text().await,
@@ -274,6 +281,10 @@ impl UIMenu {
             }
             _ => {}
         }
+    }
+    pub fn get_loading_text(&self) -> [Option<String<16>>; 3] {
+        let string_1 = format!(16; "Starting up...").unwrap();
+        [None, Some(string_1), None]
     }
 
     pub async fn get_main_menu_text(&self) -> [Option<String<16>>; 3] {
@@ -337,7 +348,7 @@ impl UIMenu {
 
     pub fn get_temp_menu_text(&self) -> [Option<String<16>>; 3] {
         let header = format!(16; "Temperature").unwrap();
-        let temperature = format!(16; "0.0f").unwrap();
+        let temperature = format!(16; "0.0F").unwrap();
 
         [Some(header), Some(temperature), None]
     }
