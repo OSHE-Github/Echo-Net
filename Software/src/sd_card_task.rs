@@ -49,7 +49,7 @@ pub async fn sd_card_task(
     // Not really sure what our max amount of files should be. Previously a u8 was used so the max was 255.
     for idx in 1..1000 {
         filename.clear();
-        write!(filename, "log_{:02}.txt", idx).unwrap();
+        write!(filename, "BLT_Results_{:02}.txt", idx).unwrap();
 
         match volume_manager.open_file_in_dir(echo_net_dir, filename.as_str(), Mode::ReadOnly) {
             Ok(file) => {
@@ -104,20 +104,10 @@ fn format_rfid_data(data: &RFIDTag) -> heapless::String<256> {
 
     write!(
         output,
-        "RSSI: {} Frequency: {} Timestamp: {} EPC[",
-        data.rssi, data.freq, data.time_stamp,
+        "Timestamp: {}",
+        data.time_stamp,
     )
     .unwrap();
-
-    for (i, byte) in data.epc.bytes.iter().enumerate() {
-        if i > 0 {
-            write!(output, " ").unwrap();
-        }
-
-        write!(output, "{:02X}", byte).unwrap();
-    }
-
-    writeln!(output, "]").unwrap();
 
     output
 }
