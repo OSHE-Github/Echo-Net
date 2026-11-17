@@ -6,6 +6,7 @@ use embassy_sync::{
     watch::Watch,
 };
 use embassy_time::Timer;
+use embedded_sdmmc::Timestamp;
 use esp_hal::uart::{Config, Uart};
 use esp_println::println;
 use hashbrown::HashSet;
@@ -29,7 +30,7 @@ pub struct RfidInitData {
 pub struct RFIDTag {
     pub rssi: i8,
     pub freq: u32,
-    pub time_stamp: u16,
+    pub time_stamp: Timestamp,
     pub epc: EPC,
 }
 
@@ -63,115 +64,115 @@ pub async fn rfid_task(
     rfid_data: RfidInitData,
     rfid_sender: Sender<'static, CriticalSectionRawMutex, RFIDTag, 16>,
 ) {
-    let setup_result = setup_rfid_module(
-        rfid_data.baud_rate,
-        rfid_data.uart,
-        rfid_data.rx,
-        rfid_data.tx,
-    )
-    .await;
+    // let setup_result = setup_rfid_module(
+    //     rfid_data.baud_rate,
+    //     rfid_data.uart,
+    //     rfid_data.rx,
+    //     rfid_data.tx,
+    // )
+    // .await;
 
-    let mut rfid = match setup_result {
-        Ok(rfid) => rfid,
-        Err(response_error) => {
-            panic!(
-                "Module failed to respond, please check wiring {:?}.",
-                response_error
-            );
-        }
-    };
+    // let mut rfid = match setup_result {
+    //     Ok(rfid) => rfid,
+    //     Err(response_error) => {
+    //         panic!(
+    //             "Module failed to respond, please check wiring {:?}.",
+    //             response_error
+    //         );
+    //     }
+    // };
 
-    rfid.set_region(Region::NorthAmerica);
+    // rfid.set_region(Region::NorthAmerica);
 
-    // 5.00 dBm. Higher values may caues USB port to brown out
-    // We use an AtomicU16 so the UI task can also safely access it
-    set_power_level(1000);
-    rfid.set_read_power(get_current_power_level());
-    // Max Read TX Power is 27.00 dBm and may cause temperature-limit throttling
+    // // 5.00 dBm. Higher values may caues USB port to brown out
+    // // We use an AtomicU16 so the UI task can also safely access it
+    // set_power_level(1000);
+    // rfid.set_read_power(get_current_power_level());
+    // // Max Read TX Power is 27.00 dBm and may cause temperature-limit throttling
 
-    println!("Module connected! Constant scanning started.");
+    // println!("Module connected! Constant scanning started.");
 
-    rfid.start_reading();
+    // rfid.start_reading();
 
-    let mut rfid_scanning_reciever = RFID_SCANNING_ENABLED.receiver().unwrap();
+    // let mut rfid_scanning_reciever = RFID_SCANNING_ENABLED.receiver().unwrap();
 
-    loop {
-        rfid_scanning_reciever.get_and(|enabled| *enabled).await;
+    // loop {
+    //     rfid_scanning_reciever.get_and(|enabled| *enabled).await;
 
-        if rfid.check().await {
-            let response_type = rfid.parse_response();
+    //     if rfid.check().await {
+    //         let response_type = rfid.parse_response();
 
-            match response_type {
-                ResponseError::ResponseIsKeepAlive => {
-                    println!("Scanning");
-                }
-                ResponseError::ResposneIsTagFound => {
-                    // If we have a full record we can pull out the fun bits
+    //         match response_type {
+    //             ResponseError::ResponseIsKeepAlive => {
+    //                 println!("Scanning");
+    //             }
+    //             ResponseError::ResposneIsTagFound => {
+    //                 // If we have a full record we can pull out the fun bits
 
-                    // Get the RSSI for this tag read
-                    let rssi = rfid.get_tag_rssi();
-                    // Get the frequency this tag was detected at
-                    let freq = rfid.get_tag_freq();
-                    // Get the time this was read, (ms) since last keep-alive message
-                    let time_stamp = rfid.get_tag_time_stamp();
-                    // Get the number of bytes of EPC from response
-                    let tag_epc_bytes = rfid.get_tag_epc_bytes();
+    //                 // Get the RSSI for this tag read
+    //                 let rssi = rfid.get_tag_rssi();
+    //                 // Get the frequency this tag was detected at
+    //                 let freq = rfid.get_tag_freq();
+    //                 // Get the time this was read, (ms) since last keep-alive message
+    //                 let time_stamp = rfid.get_tag_time_stamp();
+    //                 // Get the number of bytes of EPC from response
+    //                 let tag_epc_bytes = rfid.get_tag_epc_bytes();
 
-                    println!(
-                        "rssi: {rssi}, freq: {freq}, time stamp: {time_stamp}, tag epc bytes: {tag_epc_bytes}"
-                    );
-                    let mut output = heapless::String::<128>::new();
-                    let mut epc_bytes: heapless::Vec<u8, 12> = heapless::Vec::new();
+    //                 println!(
+    //                     "rssi: {rssi}, freq: {freq}, time stamp: {time_stamp}, tag epc bytes: {tag_epc_bytes}"
+    //                 );
+    //                 let mut output = heapless::String::<128>::new();
+    //                 let mut epc_bytes: heapless::Vec<u8, 12> = heapless::Vec::new();
 
-                    write!(output, " epc[").unwrap();
+    //                 write!(output, " epc[").unwrap();
 
-                    for idx in 0..usize::from(tag_epc_bytes) {
-                        write!(output, "{:02X} ", rfid.msg[31 + idx]).unwrap();
-                        epc_bytes.push(rfid.msg[31 + idx]).unwrap();
-                    }
+    //                 for idx in 0..usize::from(tag_epc_bytes) {
+    //                     write!(output, "{:02X} ", rfid.msg[31 + idx]).unwrap();
+    //                     epc_bytes.push(rfid.msg[31 + idx]).unwrap();
+    //                 }
 
-                    let epc = EPC::new(epc_bytes);
+    //                 let epc = EPC::new(epc_bytes);
 
-                    write!(output, "]").unwrap();
+    //                 write!(output, "]").unwrap();
 
-                    let mut unique_epc_tags = UNIQUE_EPC_TAGS.lock().await;
+    //                 let mut unique_epc_tags = UNIQUE_EPC_TAGS.lock().await;
 
-                    let result = check_if_unique(&mut unique_epc_tags, epc.clone());
-                    match result {
-                        Ok(true) => {
-                            println!("saving: {}", output);
-                        }
-                        Ok(false) => {
-                            println!("found: {}", output);
-                            continue;
-                        }
-                        Err(_) => {
-                            warn!("RFID tag PSRAM is full!");
-                            continue;
-                        }
-                    }
+    //                 let result = check_if_unique(&mut unique_epc_tags, epc.clone());
+    //                 match result {
+    //                     Ok(true) => {
+    //                         println!("saving: {}", output);
+    //                     }
+    //                     Ok(false) => {
+    //                         println!("found: {}", output);
+    //                         continue;
+    //                     }
+    //                     Err(_) => {
+    //                         warn!("RFID tag PSRAM is full!");
+    //                         continue;
+    //                     }
+    //                 }
 
-                    let rfid_tag = RFIDTag {
-                        rssi,
-                        freq,
-                        time_stamp,
-                        epc,
-                    };
+    //                 let rfid_tag = RFIDTag {
+    //                     rssi,
+    //                     freq,
+    //                     ,
+    //                     epc,
+    //                 };
 
-                    rfid_sender.send(rfid_tag).await;
-                }
-                ResponseError::ErrorCorruptResponse => {
-                    println!("Bad crc");
-                }
-                ResponseError::ResponseIsHighReturnLoss => {
-                    println!("High return loss, check antenna!");
-                }
-                response_error => {
-                    println!("Unexpected error: {:?}", response_error);
-                }
-            }
-        }
-    }
+    //                 rfid_sender.send(rfid_tag).await;
+    //             }
+    //             ResponseError::ErrorCorruptResponse => {
+    //                 println!("Bad crc");
+    //             }
+    //             ResponseError::ResponseIsHighReturnLoss => {
+    //                 println!("High return loss, check antenna!");
+    //             }
+    //             response_error => {
+    //                 println!("Unexpected error: {:?}", response_error);
+    //             }
+    //         }
+    //     }
+    // }
 }
 
 async fn setup_rfid_module(
@@ -253,4 +254,3 @@ fn check_if_unique(tags: &mut Option<HashSet<EPC>>, tag: EPC) -> Result<bool, ()
         None => Err(()),
     }
 }
-

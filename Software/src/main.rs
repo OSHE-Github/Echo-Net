@@ -10,9 +10,15 @@
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel};
 use embassy_time::Timer;
 use embedded_hal_bus::spi::ExclusiveDevice;
-use embedded_sdmmc::{SdCard, VolumeManager};
+use embedded_sdmmc::{SdCard, Timestamp, VolumeManager};
 use esp_hal::{
-    Config, clock::CpuClock, gpio::{InputConfig, Level, Output, OutputConfig, Pull}, i2c::master::I2c, spi::{self, master::Spi}, time::Rate, timer::timg::TimerGroup,
+    Config,
+    clock::CpuClock,
+    gpio::{InputConfig, Level, Output, OutputConfig, Pull},
+    i2c::master::I2c,
+    spi::{self, master::Spi},
+    time::Rate,
+    timer::timg::TimerGroup,
 };
 
 // Folders
@@ -29,7 +35,11 @@ use esp_println::println;
 use log::error;
 
 use crate::{
-    battery_life_testing::battery_life_task, cross_task_data::set_power_level, rfid_task::{EPC, RFID_CHANNEL, RfidInitData}, sd_card_task::sd_card_task, ui::ui_task::{DeviceButton, UI_CHANNEL, ui_driver_task},
+    battery_life_testing::battery_life_task,
+    cross_task_data::{set_power_level, update_device_time},
+    rfid_task::{EPC, RFID_CHANNEL, RfidInitData},
+    sd_card_task::sd_card_task,
+    ui::ui_task::{DeviceButton, UI_CHANNEL, ui_driver_task},
 };
 
 #[panic_handler]
@@ -108,6 +118,16 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
     static EPC_TAG_CHANNEL: Channel<CriticalSectionRawMutex, Option<EPC>, 8> = Channel::new();
     static STARTUP_CHANNEL: Channel<CriticalSectionRawMutex, bool, 8> = Channel::new();
     set_power_level(1000);
+
+    let timestamp = Timestamp {
+        year_since_1970: 56,
+        zero_indexed_month: 10,
+        zero_indexed_day: 15,
+        hours: 12,
+        minutes: 0,
+        seconds: 0,
+    };
+    update_device_time(timestamp);
     // spawner.spawn(rfid_task(rfid_data, RFID_CHANNEL.sender()).unwrap());
     spawner.spawn(
         ui_driver_task(
@@ -139,4 +159,3 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
         Timer::after_secs(45).await;
     }
 }
-

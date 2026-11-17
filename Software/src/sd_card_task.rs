@@ -94,16 +94,14 @@ pub async fn sd_card_task(
         .await
         {
             embassy_futures::select::Either::First(rfid_data) => {
-                println!("Found timestamp");
-                println!("stamp: {}", rfid_data.time_stamp);
                 let log_entry = format_rfid_data(&rfid_data);
-                println!("Formatted: {}", log_entry);
+
                 let file = volume_manager
                     .open_file_in_dir(echo_net_dir, filename.as_str(), Mode::ReadWriteAppend)
-                    .unwrap()
-                    .to_file(&volume_manager);
-                file.write(log_entry.as_bytes()).unwrap();
-                volume_manager.close_file(file.to_raw_file()).unwrap();
+                    .unwrap();
+
+                volume_manager.write(file, log_entry.as_bytes()).unwrap();
+                volume_manager.close_file(file).unwrap();
             }
             embassy_futures::select::Either::Second(tag_index) => {
                 let epc_result =
@@ -119,7 +117,7 @@ pub async fn sd_card_task(
 fn format_rfid_data(data: &RFIDTag) -> heapless::String<256> {
     let mut output = heapless::String::new();
 
-    write!(output, "Timestamp: {}", data.time_stamp,).unwrap();
+    write!(output, "Timestamp: {}", data.time_stamp).unwrap();
 
     output
 }
