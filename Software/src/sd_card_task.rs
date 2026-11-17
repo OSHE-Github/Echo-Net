@@ -2,11 +2,12 @@ use core::fmt::Write;
 use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::{Receiver, Sender}};
 use embassy_time::Delay;
 use embedded_hal_bus::spi::ExclusiveDevice;
-use embedded_sdmmc::{BlockDevice, Mode, RawDirectory, SdCard, TimeSource, VolumeIdx, VolumeManager};
+use embedded_sdmmc::{BlockDevice, Error, Mode, RawDirectory, SdCard, TimeSource, VolumeIdx, VolumeManager};
 use esp_hal::{Blocking, gpio::Output, spi::master::Spi};
 use esp_println::println;
+use hashbrown::HashSet;
 
-use crate::{cross_task_data::SharedDeviceTimeSource, rfid_task::{EPC, RFIDTag}};
+use crate::{cross_task_data::SharedDeviceTimeSource, rfid_task::{EPC, MAX_TAGS, RFIDTag, UNIQUE_EPC_TAGS}};
 
 const ECHO_NET_DIRECTORY: &'static str = "ECHONET";
 
@@ -17,7 +18,7 @@ pub async fn sd_card_task(
         SharedDeviceTimeSource,
     >,
     rfid_data_reciever: Receiver<'static, CriticalSectionRawMutex, RFIDTag, 16>,
-    epc_tag_request_reciever: Receiver<'static, CriticalSectionRawMutex, usize, 8>,
+    epc_tag_request_reciever: Receiver<'static, CriticalSectionRawMutex, Option<usize>, 8>,
     epc_tag_sender: Sender<'static, CriticalSectionRawMutex, Option<EPC>, 8>,
     startup_sender: Sender<'static, CriticalSectionRawMutex, bool, 8>,
 ) {
@@ -46,6 +47,8 @@ pub async fn sd_card_task(
     let mut filename = heapless::String::<32>::new();
     let mut filename_found = false;
 
+    let mut last_session_filename: Option<heapless::String<32>> = None;
+
     // Not really sure what our max amount of files should be. Previously a u8 was used so the max was 255.
     for idx in 1..1000 {
         filename.clear();
@@ -55,6 +58,8 @@ pub async fn sd_card_task(
             Ok(file) => {
                 // It exists, so close it and try the next number.
                 volume_manager.close_file(file).unwrap();
+
+                last_session_filename = Some(filename.clone());
             }
             Err(_) => {
                 // Doesn't exist, so this is our filename.
@@ -78,6 +83,7 @@ pub async fn sd_card_task(
 
     startup_sender.send(true).await;
 
+
     loop {
         match embassy_futures::select::select(rfid_data_reciever.receive(), epc_tag_request_reciever.receive()).await {
             embassy_futures::select::Either::First(rfid_data) => {
@@ -89,14 +95,96 @@ pub async fn sd_card_task(
                 file.write(log_entry.as_bytes()).unwrap();
                 volume_manager.close_file(file.to_raw_file()).unwrap();
             },
-            embassy_futures::select::Either::Second(tag_index) => {
-                let epc_result = get_stored_rfid(&volume_manager, echo_net_dir, filename.as_str(), tag_index);
-                if let Ok(epc) = epc_result {
-                    epc_tag_sender.send(epc).await;
+            embassy_futures::select::Either::Second(tag_index_option) => {
+                if let Some(tag_index) = tag_index_option {
+                    let epc_result = get_stored_rfid(&volume_manager, echo_net_dir, filename.as_str(), tag_index);
+                    if let Ok(epc) = epc_result {
+                        epc_tag_sender.send(epc).await;
+                    }
+                } else {
+                    if let Some(last_filename) = &last_session_filename {
+                        restore_epc_tags(
+                            &volume_manager,
+                            echo_net_dir,
+                            last_filename.as_str(),
+                        ).await;
+                    } else {
+                        println!("No previous session available");
+                    }
                 }
             }
         }
     }
+}
+
+pub async fn restore_epc_tags(
+    volume_manager: &VolumeManager<
+        SdCard<ExclusiveDevice<Spi<'static, Blocking>, Output<'static>, Delay>, Delay>,
+        SharedDeviceTimeSource,
+    >,
+    echo_net_dir: RawDirectory,
+    filename: &str,
+) -> Option<usize> {
+
+    let file = volume_manager
+        .open_file_in_dir(echo_net_dir, filename, Mode::ReadOnly).ok()?
+        .to_file(volume_manager);
+
+    let mut buffer = [0u8; 256];
+    let mut restored_count = 0;
+
+    // Temporary set so we don't partially overwrite existing data.
+    let mut restored_tags = HashSet::with_capacity_and_hasher(
+        MAX_TAGS,
+        Default::default(),
+    );
+
+    loop {
+        let bytes_read = file.read(&mut buffer).ok()?;
+
+        if bytes_read == 0 {
+            break;
+        }
+
+        let contents = core::str::from_utf8(&buffer[..bytes_read]).ok()?;
+
+        for line in contents.lines() {
+            let Some(epc_start) = line.find("EPC[") else {
+                continue;
+            };
+
+            let Some(epc_end) = line[epc_start + 4..].find(']') else {
+                continue;
+            };
+
+            let epc_str = &line[epc_start + 4..epc_start + 4 + epc_end];
+
+            let mut bytes = heapless::Vec::<u8, 12>::new();
+
+            for byte_str in epc_str.split_whitespace() {
+                let Ok(byte) = u8::from_str_radix(byte_str, 16) else {
+                    continue;
+                };
+
+                bytes.push(byte).ok()?;
+            }
+
+            if bytes.is_empty() {
+                continue;
+            }
+
+            if restored_tags.insert(EPC::new(bytes)) {
+                restored_count += 1;
+            }
+        }
+    }
+
+    volume_manager.close_file(file.to_raw_file()).ok()?;
+
+    // Only replace the existing set after successful reading.
+    UNIQUE_EPC_TAGS.lock().await.replace(restored_tags);
+
+    Some(restored_count)
 }
 
 fn format_rfid_data(data: &RFIDTag) -> heapless::String<256> {
@@ -135,8 +223,6 @@ pub fn format_epc(epc: &EPC) -> heapless::String<16> {
 
     output
 }
-
-
 
 pub fn get_stored_rfid<D, T>(
     volume_manager: &VolumeManager<D, T>,

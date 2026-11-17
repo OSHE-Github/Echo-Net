@@ -34,7 +34,7 @@ pub struct RFIDTag {
 }
 
 // We can track up to 100,000 different bats in one session
-const MAX_TAGS: usize = 100_000;
+pub const MAX_TAGS: usize = 100_000;
 
 // Contains data read by the RFID library
 pub static RFID_CHANNEL: Channel<CriticalSectionRawMutex, RFIDTag, 16> = Channel::new();

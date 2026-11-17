@@ -37,7 +37,7 @@ pub async fn ui_driver_task(
     message_reciever: Receiver<'static, CriticalSectionRawMutex, DeviceButton, 16>,
     epc_tag_reciever: Receiver<'static, CriticalSectionRawMutex, Option<EPC>, 8>,
     startup_reciever: Receiver<'static, CriticalSectionRawMutex, bool, 8>,
-    epc_tag_request_sender: Sender<'static, CriticalSectionRawMutex, usize, 8>,
+    epc_tag_request_sender: Sender<'static, CriticalSectionRawMutex, Option<usize>, 8>,
 ) {
     let interface = I2CInterface::new(i2c, 0x3C, 0x40);
 
@@ -128,13 +128,13 @@ pub async fn ui_driver_task(
                 ui_menu.press_trigger_button();
             }
             DeviceButton::MenuButton => {
-                ui_menu.press_menu_button();
+                ui_menu.press_menu_button().await;
             }
             DeviceButton::PlusButton => {
                 ui_menu.press_plus_button();
             }
             DeviceButton::LockButton => {
-                ui_menu.press_lock_button();
+                ui_menu.press_lock_button().await;
             }
         }
     }

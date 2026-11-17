@@ -32,10 +32,7 @@ use esp_println::println;
 use log::error;
 
 use crate::{
-    cross_task_data::set_power_level,
-    rfid_task::{EPC, RFID_CHANNEL, RfidInitData},
-    sd_card_task::sd_card_task,
-    ui::ui_task::{DeviceButton, UI_CHANNEL, ui_driver_task},
+    cross_task_data::set_power_level, rfid_task::{EPC, RFID_CHANNEL, RfidInitData, rfid_task}, sd_card_task::sd_card_task, ui::ui_task::{DeviceButton, UI_CHANNEL, ui_driver_task},
 };
 
 #[panic_handler]
@@ -133,11 +130,11 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
     let sd_card = SdCard::new(spi_dev, embassy_time::Delay);
 
     let volume_manager = VolumeManager::new(sd_card, cross_task_data::SharedDeviceTimeSource);
-    static EPC_REQUESTER_CHANNEL: Channel<CriticalSectionRawMutex, usize, 8> = Channel::new();
+    static EPC_REQUESTER_CHANNEL: Channel<CriticalSectionRawMutex, Option<usize>, 8> = Channel::new();
     static EPC_TAG_CHANNEL: Channel<CriticalSectionRawMutex, Option<EPC>, 8> = Channel::new();
     static STARTUP_CHANNEL: Channel<CriticalSectionRawMutex, bool, 8> = Channel::new();
     set_power_level(1000);
-    // spawner.spawn(rfid_task(rfid_data, RFID_CHANNEL.sender()).unwrap());
+    spawner.spawn(rfid_task(rfid_data, RFID_CHANNEL.sender()).unwrap());
     spawner.spawn(
         ui_driver_task(
             i2c_line,

@@ -12,18 +12,42 @@ use embassy_sync::{
     channel::{Receiver, Sender},
 };
 use embedded_sdmmc::Timestamp;
-use esp_alloc::export::enumset::__internal::set::new;
 use heapless::{String, format};
 
-struct MainMenu {
-    // Bat amount read this session
-    // Last RFID read
-    // Power Level
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+enum RestoreSessionOption {
+    RestoreSession,
+    NewSession,
 }
 
-impl MainMenu {
-    pub fn new() -> Self {
-        Self {}
+struct RestoreSessionMenu {
+    session_choice: RestoreSessionOption,
+    epc_tag_request_sender: Sender<'static, CriticalSectionRawMutex, Option<usize>, 8>,
+}
+
+impl RestoreSessionMenu {
+    pub fn new(epc_tag_request_sender: Sender<'static, CriticalSectionRawMutex, Option<usize>, 8>) -> Self {
+        Self {
+            session_choice: RestoreSessionOption::RestoreSession,
+            epc_tag_request_sender,
+        }
+    }
+
+    pub fn select_option(&self) {
+        match self.session_choice {
+            RestoreSessionOption::RestoreSession => {
+                todo!("Compute from last session");
+            },
+            RestoreSessionOption::NewSession => {/* Do nothing */},
+        }
+        
+    }
+
+    pub fn change_option(&mut self) {
+        match self.session_choice {
+            RestoreSessionOption::RestoreSession => self.session_choice = RestoreSessionOption::NewSession,
+            RestoreSessionOption::NewSession => self.session_choice = RestoreSessionOption::RestoreSession,
+        }
     }
 }
 
@@ -70,17 +94,17 @@ impl PowerMenu {
 }
 
 struct ReadTagMenu {
-    // "RFID Tags"
-    // Scrolling tags
     tag_index: usize,
+    // Recieves read tags from the SD card
     epc_tag_reciever: Receiver<'static, CriticalSectionRawMutex, Option<EPC>, 8>,
-    epc_tag_request_sender: Sender<'static, CriticalSectionRawMutex, usize, 8>,
+    // Sends a tag request to the SD card
+    epc_tag_request_sender: Sender<'static, CriticalSectionRawMutex, Option<usize>, 8>,
 }
 
 impl ReadTagMenu {
     pub fn new(
         epc_tag_reciever: Receiver<'static, CriticalSectionRawMutex, Option<EPC>, 8>,
-        epc_tag_request_sender: Sender<'static, CriticalSectionRawMutex, usize, 8>,
+        epc_tag_request_sender: Sender<'static, CriticalSectionRawMutex, Option<usize>, 8>,
     ) -> Self {
         Self {
             tag_index: 0,
@@ -99,86 +123,67 @@ impl ReadTagMenu {
 
     pub async fn get_rfid_tag(&self, offset: usize) -> Option<EPC> {
         self.epc_tag_request_sender
-            .send(self.tag_index + offset)
+            .send(Some(self.tag_index + offset))
             .await;
         self.epc_tag_reciever.receive().await
     }
 }
 
-struct TempMenu {
-    // "Temperature"
-    // temperature
-}
-
 struct TimeMenu {
-    // Currently selected digit (0-7)
+    // Currently selected field (0-4)
     time_index: usize,
 
-    // YY MM DD HH MM
-    time_digits: [u8; 10],
+    // MM/DD/YY,HH:MM
+    time_values: [u8; 5],
 }
 
 impl TimeMenu {
     pub fn new() -> Self {
         Self {
             time_index: 0,
-            time_digits: [0; 10],
+            time_values: [1, 1, 0, 0, 0],
         }
     }
 
     pub fn increase_digit(&mut self) {
-        self.time_index = (self.time_index + 1) % 10;
+        self.time_index = (self.time_index + 1) % 5;
     }
 
     pub fn increase_time_on_digit(&mut self) {
-        let max_values = [1, 9, 9, 9, 9, 9, 2, 9, 5, 9];
+        let max_values = [12, 31, 99, 23, 59];
+        let min_values = [1, 1, 0, 0, 0];
 
-        self.time_digits[self.time_index] =
-            (self.time_digits[self.time_index] + 1) % (max_values[self.time_index] + 1);
-        
-        // Ensure hour never goes beyond 23
-        if self.time_index == 7 {
-            let prev_index = self.time_index.saturating_sub(1);
-            if self.time_digits[self.time_index] > 3 && self.time_digits[prev_index] > 1 {
-                self.time_digits[prev_index] = 0;
-            }
-        } else if self.time_index == 6 {
-            let next_index = self.time_index.saturating_add(1);
-            if self.time_digits[self.time_index] > 1 && self.time_digits[next_index] > 3 {
-                self.time_digits[next_index] = 0;
-            }
+        let index = self.time_index;
+
+        self.time_values[index] += 1;
+
+        if self.time_values[index] > max_values[index] {
+            self.time_values[index] = min_values[index];
         }
 
         self.update_timestamp();
     }
 
     pub fn get_time(&self) -> String<16> {
-        let time = format!(16;
+        format!(
+            16;
             "{:02}/{:02}/{:02},{:02}:{:02}",
-            self.time_digits[0] * 10 + self.time_digits[1],
-            self.time_digits[2] * 10 + self.time_digits[3],
-            self.time_digits[4] * 10 + self.time_digits[5],
-            self.time_digits[6] * 10 + self.time_digits[7],
-            self.time_digits[8] * 10 + self.time_digits[9],
+            self.time_values[0],
+            self.time_values[1],
+            self.time_values[2],
+            self.time_values[3],
+            self.time_values[4],
         )
-        .unwrap();
-
-        time
+        .unwrap()
     }
 
     pub fn update_timestamp(&self) {
-        let month = self.time_digits[0] * 10 + self.time_digits[1];
-        let day = self.time_digits[2] * 10 + self.time_digits[3];
-        let year = self.time_digits[4] * 10 + self.time_digits[5];
-        let hour = self.time_digits[6] * 10 + self.time_digits[7];
-        let minute = self.time_digits[8] * 10 + self.time_digits[9];
-
         update_device_time(Timestamp {
-            year_since_1970: year.saturating_add(30),
-            zero_indexed_month: month.saturating_sub(1),
-            zero_indexed_day: day.saturating_sub(1),
-            hours: hour,
-            minutes: minute,
+            year_since_1970: self.time_values[2].saturating_add(30),
+            zero_indexed_month: self.time_values[0].saturating_sub(1),
+            zero_indexed_day: self.time_values[1].saturating_sub(1),
+            hours: self.time_values[3],
+            minutes: self.time_values[4],
             seconds: 0,
         });
     }
@@ -188,13 +193,18 @@ pub struct UIMenu {
     active_menu_state: ActiveMenuState,
 
     // We only have state data on some states
+    restore_session_menu: RestoreSessionMenu,
     power_menu: PowerMenu,
     tag_menu: ReadTagMenu,
     time_menu: TimeMenu,
 }
 
 enum ActiveMenuState {
+    // When the device is loading on
     Loading,
+    // Ask user if they want to restore from last session
+    RestoreLastSession,
+    // Regular menus
     Main,
     Power,
     ReadTags,
@@ -205,12 +215,13 @@ enum ActiveMenuState {
 impl UIMenu {
     pub fn new(
         epc_tag_reciever: Receiver<'static, CriticalSectionRawMutex, Option<EPC>, 8>,
-        epc_tag_request_sender: Sender<'static, CriticalSectionRawMutex, usize, 8>,
+        epc_tag_request_sender: Sender<'static, CriticalSectionRawMutex, Option<usize>, 8>,
     ) -> Self {
         Self {
             // Start on the main screen
             active_menu_state: ActiveMenuState::Loading,
             // State data
+            restore_session_menu: RestoreSessionMenu::new(epc_tag_request_sender),
             power_menu: PowerMenu::new(get_current_power_level()),
             tag_menu: ReadTagMenu::new(epc_tag_reciever, epc_tag_request_sender),
             time_menu: TimeMenu::new(),
@@ -218,13 +229,17 @@ impl UIMenu {
     }
 
     pub fn load(&mut self) {
-        self.active_menu_state = ActiveMenuState::Main;
+        self.active_menu_state = ActiveMenuState::RestoreLastSession;
     }
 
     // Move to the next menu mode
-    pub fn next(&mut self) {
+    pub async fn next(&mut self) {
         match self.active_menu_state {
             ActiveMenuState::Loading => self.active_menu_state = ActiveMenuState::Loading,
+            ActiveMenuState::RestoreLastSession => {
+                self.restore_session_menu.epc_tag_request_sender.send(None).await;
+                self.active_menu_state = ActiveMenuState::Main
+            },
             ActiveMenuState::Main => self.active_menu_state = ActiveMenuState::Power,
             ActiveMenuState::Power => self.active_menu_state = ActiveMenuState::ReadTags,
             ActiveMenuState::ReadTags => self.active_menu_state = ActiveMenuState::Temp,
@@ -236,6 +251,7 @@ impl UIMenu {
     pub async fn get_display(&self) -> [Option<String<16>>; 3] {
         match self.active_menu_state {
             ActiveMenuState::Loading => self.get_loading_text(),
+            ActiveMenuState::RestoreLastSession => self.get_restore_session_test(),
             ActiveMenuState::Main => self.get_main_menu_text().await,
             ActiveMenuState::Power => self.get_power_menu_text(),
             ActiveMenuState::ReadTags => self.get_tag_menu_text().await,
@@ -248,12 +264,15 @@ impl UIMenu {
         // Currently doesn't do anything
     }
 
-    pub fn press_menu_button(&mut self) {
-        self.next();
+    pub async fn press_menu_button(&mut self) {
+        self.next().await;
     }
 
     pub fn press_plus_button(&mut self) {
         match self.active_menu_state {
+            ActiveMenuState::RestoreLastSession => {
+                self.restore_session_menu.change_option();
+            }
             ActiveMenuState::Power => {
                 self.power_menu.increase_power_on_digit();
             }
@@ -268,8 +287,11 @@ impl UIMenu {
         self.set_power_level_ui();
     }
 
-    pub fn press_lock_button(&mut self) {
+    pub async fn press_lock_button(&mut self) {
         match self.active_menu_state {
+            ActiveMenuState::RestoreLastSession => {
+                self.next().await;
+            }
             ActiveMenuState::Power => {
                 self.power_menu.increase_digit();
             }
@@ -285,6 +307,23 @@ impl UIMenu {
     pub fn get_loading_text(&self) -> [Option<String<16>>; 3] {
         let string_1 = format!(16; "Starting up...").unwrap();
         [None, Some(string_1), None]
+    }
+
+    pub fn get_restore_session_test(&self) -> [Option<String<16>>; 3] {
+        let string_1 = format!(16; "Restore session?").unwrap();
+        let string_2 = 
+        if self.restore_session_menu.session_choice == RestoreSessionOption::RestoreSession {
+            format!(16; "Yes <")
+        } else {
+            format!(16; "Yes")
+        }.unwrap();
+        let string_3 = 
+        if self.restore_session_menu.session_choice == RestoreSessionOption::NewSession {
+            format!(16; "New session <")
+        } else {
+            format!(16; "New session")
+        }.unwrap();
+        [Some(string_1), Some(string_2), Some(string_3)]
     }
 
     pub async fn get_main_menu_text(&self) -> [Option<String<16>>; 3] {
@@ -362,16 +401,11 @@ impl UIMenu {
             time.zero_indexed_month.saturating_add(1), time.zero_indexed_day.saturating_add(1), time_since_2000, time.hours, time.minutes).unwrap_or(format!(16; " a ").unwrap());
 
         let cursor_string = match self.time_menu.time_index {
-            0 => format!(16; "^             "),
-            1 => format!(16; " ^            "),
-            2 => format!(16; "   ^          "),
-            3 => format!(16; "    ^         "),
-            4 => format!(16; "      ^       "),
-            5 => format!(16; "       ^      "),
-            6 => format!(16; "         ^    "),
-            7 => format!(16; "          ^   "),
-            8 => format!(16; "            ^ "),
-            _ => format!(16; "             ^"),
+            0 => format!(16; " ^             "),
+            1 => format!(16; "    ^          "),
+            2 => format!(16; "       ^       "),
+            3 => format!(16; "          ^    "),
+            _ => format!(16; "             ^ "),
         }
         .unwrap();
 
