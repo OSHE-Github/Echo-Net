@@ -1,12 +1,20 @@
 use core::fmt::Write;
-use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::{Receiver, Sender}};
+use embassy_sync::{
+    blocking_mutex::raw::CriticalSectionRawMutex,
+    channel::{Receiver, Sender},
+};
 use embassy_time::Delay;
 use embedded_hal_bus::spi::ExclusiveDevice;
-use embedded_sdmmc::{BlockDevice, Mode, RawDirectory, SdCard, TimeSource, VolumeIdx, VolumeManager};
+use embedded_sdmmc::{
+    BlockDevice, Mode, RawDirectory, SdCard, TimeSource, VolumeIdx, VolumeManager,
+};
 use esp_hal::{Blocking, gpio::Output, spi::master::Spi};
 use esp_println::println;
 
-use crate::{cross_task_data::SharedDeviceTimeSource, rfid_task::{EPC, RFIDTag}};
+use crate::{
+    cross_task_data::SharedDeviceTimeSource,
+    rfid_task::{EPC, RFIDTag},
+};
 
 const ECHO_NET_DIRECTORY: &'static str = "ECHONET";
 
@@ -49,7 +57,7 @@ pub async fn sd_card_task(
     // Not really sure what our max amount of files should be. Previously a u8 was used so the max was 255.
     for idx in 1..1000 {
         filename.clear();
-        write!(filename, "BLT_Results_{:02}.txt", idx).unwrap();
+        write!(filename, "BLT_{:02}.txt", idx).unwrap();
 
         match volume_manager.open_file_in_dir(echo_net_dir, filename.as_str(), Mode::ReadOnly) {
             Ok(file) => {
@@ -79,18 +87,27 @@ pub async fn sd_card_task(
     startup_sender.send(true).await;
 
     loop {
-        match embassy_futures::select::select(rfid_data_reciever.receive(), epc_tag_request_reciever.receive()).await {
+        match embassy_futures::select::select(
+            rfid_data_reciever.receive(),
+            epc_tag_request_reciever.receive(),
+        )
+        .await
+        {
             embassy_futures::select::Either::First(rfid_data) => {
+                println!("Found timestamp");
+                println!("stamp: {}", rfid_data.time_stamp);
                 let log_entry = format_rfid_data(&rfid_data);
+                println!("Formatted: {}", log_entry);
                 let file = volume_manager
                     .open_file_in_dir(echo_net_dir, filename.as_str(), Mode::ReadWriteAppend)
                     .unwrap()
                     .to_file(&volume_manager);
                 file.write(log_entry.as_bytes()).unwrap();
                 volume_manager.close_file(file.to_raw_file()).unwrap();
-            },
+            }
             embassy_futures::select::Either::Second(tag_index) => {
-                let epc_result = get_stored_rfid(&volume_manager, echo_net_dir, filename.as_str(), tag_index);
+                let epc_result =
+                    get_stored_rfid(&volume_manager, echo_net_dir, filename.as_str(), tag_index);
                 if let Ok(epc) = epc_result {
                     epc_tag_sender.send(epc).await;
                 }
@@ -102,12 +119,7 @@ pub async fn sd_card_task(
 fn format_rfid_data(data: &RFIDTag) -> heapless::String<256> {
     let mut output = heapless::String::new();
 
-    write!(
-        output,
-        "Timestamp: {}",
-        data.time_stamp,
-    )
-    .unwrap();
+    write!(output, "Timestamp: {}", data.time_stamp,).unwrap();
 
     output
 }
@@ -126,8 +138,6 @@ pub fn format_epc(epc: &EPC) -> heapless::String<16> {
     output
 }
 
-
-
 pub fn get_stored_rfid<D, T>(
     volume_manager: &VolumeManager<D, T>,
     directory: RawDirectory,
@@ -138,11 +148,9 @@ where
     D: BlockDevice,
     T: TimeSource,
 {
-    let file = volume_manager.open_file_in_dir(
-        directory,
-        filename,
-        Mode::ReadOnly,
-    ).unwrap();
+    let file = volume_manager
+        .open_file_in_dir(directory, filename, Mode::ReadOnly)
+        .unwrap();
 
     // Read the file in small chunks.
     let result = (|| {
@@ -198,11 +206,7 @@ where
                             found_marker = true;
                         }
                     } else {
-                        marker_index = if byte == marker[0] {
-                            1
-                        } else {
-                            0
-                        };
+                        marker_index = if byte == marker[0] { 1 } else { 0 };
                     }
 
                     continue;
