@@ -12,8 +12,7 @@ use hashbrown::HashSet;
 use log::{info, warn};
 
 use crate::{
-    cross_task_data::{get_current_power_level, set_power_level},
-    rfid_module::{
+    cross_task_data::{get_current_power_level, increment_bats}, rfid_module::{
         rfid_constants::{DEFAULT_BAUD_RATE, Region, ResponseError},
         rfid_module::RFID,
     },
@@ -85,8 +84,7 @@ pub async fn rfid_task(
 
     // 5.00 dBm. Higher values may caues USB port to brown out
     // We use an AtomicU16 so the UI task can also safely access it
-    set_power_level(1000);
-    rfid.set_read_power(get_current_power_level());
+    rfid.set_read_power(get_current_power_level());    
     // Max Read TX Power is 27.00 dBm and may cause temperature-limit throttling
 
     println!("Module connected! Constant scanning started.");
@@ -139,16 +137,17 @@ pub async fn rfid_task(
                     let result = check_if_unique(&mut unique_epc_tags, epc.clone());
                     match result {
                         Ok(true) => {
-                            println!("saving: {}", output);
+                            println!("Saving unique tag: {}", output);
+                            increment_bats();
                         }
                         Ok(false) => {
-                            println!("found: {}", output);
+                            // println!("found: {}", output);
                             continue;
                         }
                         Err(_) => {
                             warn!("RFID tag PSRAM is full!");
                             continue;
-                        }
+                        } 
                     }
 
                     let rfid_tag = RFIDTag {
@@ -171,6 +170,8 @@ pub async fn rfid_task(
                 }
             }
         }
+
+        Timer::after_millis(50).await;
     }
 }
 

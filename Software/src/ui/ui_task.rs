@@ -17,8 +17,7 @@ use ssd1306::{
 };
 
 use crate::{
-    rfid_task::{EPC, RFID_SCANNING_ENABLED},
-    ui::ui_menu::UIMenu,
+    cross_task_data::get_current_power_level, rfid_task::{RFID_SCANNING_ENABLED}, ui::{ui_menu::UIMenu, MENU_LINE_SIZE},
 };
 
 pub enum DeviceButton {
@@ -35,10 +34,11 @@ pub static UI_CHANNEL: Channel<CriticalSectionRawMutex, DeviceButton, 16> = Chan
 pub async fn ui_driver_task(
     i2c: I2c<'static, esp_hal::Async>,
     message_reciever: Receiver<'static, CriticalSectionRawMutex, DeviceButton, 16>,
-    epc_tag_reciever: Receiver<'static, CriticalSectionRawMutex, Option<EPC>, 8>,
     startup_reciever: Receiver<'static, CriticalSectionRawMutex, bool, 8>,
     epc_tag_request_sender: Sender<'static, CriticalSectionRawMutex, Option<usize>, 8>,
 ) {
+
+    println!("power 1: {}", get_current_power_level());
     let interface = I2CInterface::new(i2c, 0x3C, 0x40);
 
     let mut display = Ssd1306Async::new(
@@ -54,7 +54,7 @@ pub async fn ui_driver_task(
 
     let text_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
 
-    let mut ui_menu = UIMenu::new(epc_tag_reciever, epc_tag_request_sender);
+    let mut ui_menu = UIMenu::new(epc_tag_request_sender);
 
     let mut currently_reading = false;
     let rfid_reading_sender = RFID_SCANNING_ENABLED.sender();
@@ -63,7 +63,7 @@ pub async fn ui_driver_task(
     let [string1, string2, string3] = ui_menu.get_display().await;
     // Write text
     Text::new(
-        &string1.unwrap_or(format!(16; " ").unwrap()),
+        &string1.unwrap_or(format!(MENU_LINE_SIZE; " ").unwrap()),
         Point::new(0, 16),
         text_style,
     )
@@ -71,14 +71,14 @@ pub async fn ui_driver_task(
     .unwrap();
 
     Text::new(
-        &string2.unwrap_or(format!(16; " ").unwrap()),
+        &string2.unwrap_or(format!(MENU_LINE_SIZE; " ").unwrap()),
         Point::new(0, 32),
         text_style,
     )
     .draw(&mut display)
     .unwrap();
     Text::new(
-        &string3.unwrap_or(format!(16; " ").unwrap()),
+        &string3.unwrap_or(format!(MENU_LINE_SIZE; " ").unwrap()),
         Point::new(0, 48),
         text_style,
     )
@@ -97,21 +97,21 @@ pub async fn ui_driver_task(
 
         // Write text
         Text::new(
-            &string1.unwrap_or(format!(16; " ").unwrap()),
+            &string1.unwrap_or(format!(MENU_LINE_SIZE; " ").unwrap()),
             Point::new(0, 16),
             text_style,
         )
         .draw(&mut display)
         .unwrap();
         Text::new(
-            &string2.unwrap_or(format!(16; " ").unwrap()),
+            &string2.unwrap_or(format!(MENU_LINE_SIZE; " ").unwrap()),
             Point::new(0, 32),
             text_style,
         )
         .draw(&mut display)
         .unwrap();
         Text::new(
-            &string3.unwrap_or(format!(16; " ").unwrap()),
+            &string3.unwrap_or(format!(MENU_LINE_SIZE; " ").unwrap()),
             Point::new(0, 48),
             text_style,
         )
@@ -119,22 +119,30 @@ pub async fn ui_driver_task(
         .unwrap();
 
         display.flush().await.unwrap();
-        let button = message_reciever.receive().await;
-
-        match button {
-            DeviceButton::TriggerButton => {
-                currently_reading = !currently_reading;
-                rfid_reading_sender.send(currently_reading);
-                ui_menu.press_trigger_button();
+        match embassy_futures::select::select(
+            message_reciever.receive(),
+            embassy_time::Timer::after_millis(100),
+        ).await {
+            embassy_futures::select::Either::First(button) => {
+                match button {
+                    DeviceButton::TriggerButton => {
+                        currently_reading = !currently_reading;
+                        rfid_reading_sender.send(currently_reading);
+                        ui_menu.press_trigger_button();
+                    }
+                    DeviceButton::MenuButton => {
+                        ui_menu.press_menu_button().await;
+                    }
+                    DeviceButton::PlusButton => {
+                        ui_menu.press_plus_button();
+                    }
+                    DeviceButton::LockButton => {
+                        ui_menu.press_lock_button().await;
+                    }
+                }
             }
-            DeviceButton::MenuButton => {
-                ui_menu.press_menu_button().await;
-            }
-            DeviceButton::PlusButton => {
-                ui_menu.press_plus_button();
-            }
-            DeviceButton::LockButton => {
-                ui_menu.press_lock_button().await;
+            embassy_futures::select::Either::Second(_) => {
+                // 100 ms elapsed without receiving a button.
             }
         }
     }

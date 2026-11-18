@@ -32,7 +32,7 @@ use esp_println::println;
 use log::error;
 
 use crate::{
-    cross_task_data::set_power_level, rfid_task::{EPC, RFID_CHANNEL, RfidInitData, rfid_task}, sd_card_task::sd_card_task, ui::ui_task::{DeviceButton, UI_CHANNEL, ui_driver_task},
+    cross_task_data::set_power_level, rfid_task::{EPC, RFID_CHANNEL, RfidInitData, UNIQUE_EPC_TAGS, rfid_task}, sd_card_task::sd_card_task, ui::ui_task::{DeviceButton, UI_CHANNEL, ui_driver_task},
 };
 
 #[panic_handler]
@@ -131,7 +131,6 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
 
     let volume_manager = VolumeManager::new(sd_card, cross_task_data::SharedDeviceTimeSource);
     static EPC_REQUESTER_CHANNEL: Channel<CriticalSectionRawMutex, Option<usize>, 8> = Channel::new();
-    static EPC_TAG_CHANNEL: Channel<CriticalSectionRawMutex, Option<EPC>, 8> = Channel::new();
     static STARTUP_CHANNEL: Channel<CriticalSectionRawMutex, bool, 8> = Channel::new();
     set_power_level(1000);
     spawner.spawn(rfid_task(rfid_data, RFID_CHANNEL.sender()).unwrap());
@@ -139,7 +138,6 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
         ui_driver_task(
             i2c_line,
             UI_CHANNEL.receiver(),
-            EPC_TAG_CHANNEL.receiver(),
             STARTUP_CHANNEL.receiver(),
             EPC_REQUESTER_CHANNEL.sender(),
         )
@@ -151,13 +149,27 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
             volume_manager,
             RFID_CHANNEL.receiver(),
             EPC_REQUESTER_CHANNEL.receiver(),
-            EPC_TAG_CHANNEL.sender(),
             STARTUP_CHANNEL.sender(),
         )
         .unwrap(),
     );
 
     let sender = UI_CHANNEL.sender();
+
+    {
+        let mut tags = UNIQUE_EPC_TAGS.lock().await;
+
+        *tags = Some(hashbrown::HashSet::with_capacity_and_hasher(
+            rfid_task::MAX_TAGS,
+            Default::default(),
+        ));
+    }
+
+    let mut last_trigger_state = button_s1.is_high();
+
+    if !last_trigger_state {
+        sender.send(DeviceButton::TriggerButton).await;
+    }
 
     loop {
         let button_option = match embassy_futures::select::select4(
@@ -169,10 +181,13 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
         .await
         {
             embassy_futures::select::Either4::First(_) => {
-                let button_state = button_s1.level();
-                embassy_time::Timer::after_millis(5).await;
-                // Make sure it's not bouncing
-                if button_s1.level() == button_state {
+                embassy_time::Timer::after_millis(10).await;
+
+                let current_state = button_s1.is_high();
+
+                if current_state != last_trigger_state {
+                    last_trigger_state = current_state;
+
                     Some(DeviceButton::TriggerButton)
                 } else {
                     None
@@ -205,7 +220,7 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
         };
 
         if let Some(button) = button_option {
-            let _ = sender.try_send(button);
+            sender.send(button).await;
         }
 
         // Debounce interval
