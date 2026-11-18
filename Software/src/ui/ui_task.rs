@@ -17,7 +17,7 @@ use ssd1306::{
 };
 
 use crate::{
-    cross_task_data::get_current_power_level, rfid_task::{RFID_SCANNING_ENABLED}, ui::{ui_menu::UIMenu, MENU_LINE_SIZE},
+    cross_task_data::get_current_power_level, rfid_task::{EPCNotification, RFID_SCANNING_ENABLED}, ui::{MENU_LINE_SIZE, ui_menu::UIMenu},
 };
 
 pub enum DeviceButton {
@@ -35,6 +35,7 @@ pub async fn ui_driver_task(
     i2c: I2c<'static, esp_hal::Async>,
     message_reciever: Receiver<'static, CriticalSectionRawMutex, DeviceButton, 16>,
     startup_reciever: Receiver<'static, CriticalSectionRawMutex, bool, 8>,
+    epc_detector_reciever: Receiver<'static, CriticalSectionRawMutex, EPCNotification, 1>,
     epc_tag_request_sender: Sender<'static, CriticalSectionRawMutex, Option<usize>, 8>,
 ) {
 
@@ -54,7 +55,7 @@ pub async fn ui_driver_task(
 
     let text_style = MonoTextStyle::new(&FONT_6X10, BinaryColor::On);
 
-    let mut ui_menu = UIMenu::new(epc_tag_request_sender);
+    let mut ui_menu = UIMenu::new(epc_tag_request_sender, epc_detector_reciever);
 
     let mut currently_reading = false;
     let rfid_reading_sender = RFID_SCANNING_ENABLED.sender();
@@ -92,7 +93,8 @@ pub async fn ui_driver_task(
 
     loop {
         display.clear_buffer();
-
+        ui_menu.increment_frame();
+        // println!("frame increased");
         let [string1, string2, string3] = ui_menu.get_display().await;
 
         // Write text

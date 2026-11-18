@@ -132,13 +132,15 @@ async fn main(spawner: embassy_executor::Spawner) -> ! {
     let volume_manager = VolumeManager::new(sd_card, cross_task_data::SharedDeviceTimeSource);
     static EPC_REQUESTER_CHANNEL: Channel<CriticalSectionRawMutex, Option<usize>, 8> = Channel::new();
     static STARTUP_CHANNEL: Channel<CriticalSectionRawMutex, bool, 8> = Channel::new();
+    static EPC_READ_DETECTOR: Channel<CriticalSectionRawMutex, rfid_task::EPCNotification, 1> = Channel::new();
     set_power_level(1000);
-    spawner.spawn(rfid_task(rfid_data, RFID_CHANNEL.sender()).unwrap());
+    spawner.spawn(rfid_task(rfid_data, RFID_CHANNEL.sender(), EPC_READ_DETECTOR.sender()).unwrap());
     spawner.spawn(
         ui_driver_task(
             i2c_line,
             UI_CHANNEL.receiver(),
             STARTUP_CHANNEL.receiver(),
+            EPC_READ_DETECTOR.receiver(),
             EPC_REQUESTER_CHANNEL.sender(),
         )
         .unwrap(),

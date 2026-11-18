@@ -2,12 +2,10 @@ use crate::{
     cross_task_data::{
         get_current_bat_amount, get_current_power_level, get_current_time,
         set_power_level, update_device_time,
-    },
-    ui::MENU_LINE_SIZE,
+    }, rfid_task::EPCNotification, ui::{FRAMES_TO_DISPLAY_EPC_DETECTED, MENU_LINE_SIZE},
 };
 use embassy_sync::{
-    blocking_mutex::raw::CriticalSectionRawMutex,
-    channel::{Sender},
+    blocking_mutex::raw::CriticalSectionRawMutex, channel::{Receiver, Sender},
 };
 use embedded_sdmmc::Timestamp;
 use esp_println::println;
@@ -61,10 +59,11 @@ impl PowerMenu {
     }
 
     pub fn increase_power_on_digit(&mut self) {
-        let max_values = [2, 9];
+        let max_values = [2, if self.power_digits[0] == 2 { 7 } else { 9 }];
 
         self.power_digits[self.power_level_digit] =
-            (self.power_digits[self.power_level_digit] + 1) % (max_values[self.power_level_digit] + 1);
+            (self.power_digits[self.power_level_digit] + 1)
+                % (max_values[self.power_level_digit] + 1);
     }
 
     pub fn increase_digit(&mut self) {
@@ -133,6 +132,8 @@ pub struct UIMenu {
     active_menu_state: ActiveMenuState,
 
     trigger_is_on: bool,
+    epc_detector_reciever: Receiver<'static, CriticalSectionRawMutex, EPCNotification, 1>,
+    frames_left_display_epc: u8,
 
     // We only have state data on some states
     restore_session_menu: RestoreSessionMenu,
@@ -154,11 +155,14 @@ enum ActiveMenuState {
 impl UIMenu {
     pub fn new(
         epc_tag_request_sender: Sender<'static, CriticalSectionRawMutex, Option<usize>, 8>,
+        epc_detector_reciever: Receiver<'static, CriticalSectionRawMutex, EPCNotification, 1>,
     ) -> Self {
         Self {
             // Start on the main screen
             active_menu_state: ActiveMenuState::Loading,
             trigger_is_on: false,
+            epc_detector_reciever,
+            frames_left_display_epc: 0,
             // State data
             restore_session_menu: RestoreSessionMenu::new(epc_tag_request_sender),
             power_menu: PowerMenu::new(get_current_power_level()),
@@ -168,6 +172,9 @@ impl UIMenu {
 
     pub fn load(&mut self) {
         self.active_menu_state = ActiveMenuState::RestoreLastSession;
+    }
+    pub fn increment_frame(&mut self) {
+        self.frames_left_display_epc = self.frames_left_display_epc.saturating_sub(1);
     }
 
     // Move to the next menu mode
@@ -187,7 +194,19 @@ impl UIMenu {
         }
     }
 
-    pub async fn get_display(&self) -> [Option<String<MENU_LINE_SIZE>>; 3] {
+    pub async fn get_display(&mut self) -> [Option<String<MENU_LINE_SIZE>>; 3] {
+        if let Ok(epc_notification) = self.epc_detector_reciever.try_receive() {
+            match epc_notification {
+                EPCNotification::ReadDetected => {
+                    self.frames_left_display_epc = FRAMES_TO_DISPLAY_EPC_DETECTED;
+                },
+                EPCNotification::HighReturnLoss => {
+                    let string_1 = format!(MENU_LINE_SIZE; "High impedance!").unwrap();
+                    return [None, Some(string_1), None];
+                },
+            }
+        }
+
         match self.active_menu_state {
             ActiveMenuState::Loading => self.get_loading_text(),
             ActiveMenuState::RestoreLastSession => self.get_restore_session_test(),
@@ -257,15 +276,21 @@ impl UIMenu {
         [Some(string_1), Some(string_2), Some(string_3)]
     }
 
-    pub async fn get_main_menu_text(&self) -> [Option<String<MENU_LINE_SIZE>>; 3] {
+    pub async fn get_main_menu_text(&mut self) -> [Option<String<MENU_LINE_SIZE>>; 3] {
+
+        // println!("EPC FRAMES: {}", self.frames_left_display_epc);
+
         let string_1 = format!(MENU_LINE_SIZE; "{} bats read", get_current_bat_amount()).unwrap();
         let power = get_current_power_level() / 100;
-        // println!(" a: {}, b: {}", get_current_power_level(), power);
         let string_2 = format!(MENU_LINE_SIZE; "power: {}dB", power).unwrap();
         let string_3 = if self.trigger_is_on {
-            Some(format!(MENU_LINE_SIZE; "reading...").unwrap())
+            if self.frames_left_display_epc > 0 {
+                Some(format!(MENU_LINE_SIZE; "tag detected!").unwrap())
+            } else {
+                Some(format!(MENU_LINE_SIZE; "reading...").unwrap())
+            }
         } else {
-            None
+            Some(format!(MENU_LINE_SIZE; "not reading").unwrap())
         };
 
         [Some(string_1), Some(string_2), string_3]

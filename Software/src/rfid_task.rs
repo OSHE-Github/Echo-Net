@@ -57,10 +57,16 @@ impl EPC {
     }
 }
 
+pub enum EPCNotification {
+    ReadDetected,
+    HighReturnLoss,
+}
+
 #[embassy_executor::task]
 pub async fn rfid_task(
     rfid_data: RfidInitData,
     rfid_sender: Sender<'static, CriticalSectionRawMutex, RFIDTag, 16>,
+    epc_read_detector_sender: Sender<'static, CriticalSectionRawMutex, EPCNotification, 1>,
 ) {
     let setup_result = setup_rfid_module(
         rfid_data.baud_rate,
@@ -82,9 +88,6 @@ pub async fn rfid_task(
 
     rfid.set_region(Region::NorthAmerica);
 
-    // 5.00 dBm. Higher values may caues USB port to brown out
-    // We use an AtomicU16 so the UI task can also safely access it
-    rfid.set_read_power(get_current_power_level());    
     // Max Read TX Power is 27.00 dBm and may cause temperature-limit throttling
 
     println!("Module connected! Constant scanning started.");
@@ -93,8 +96,19 @@ pub async fn rfid_task(
 
     let mut rfid_scanning_reciever = RFID_SCANNING_ENABLED.receiver().unwrap();
 
+    let mut last_power_read = get_current_power_level();
+    
+    // 5.00 dBm. Higher values may caues USB port to brown out
+    // We use an AtomicU16 so the UI task can also safely access it
+    rfid.set_read_power(last_power_read);    
+
     loop {
         rfid_scanning_reciever.get_and(|enabled| *enabled).await;
+        
+        if get_current_power_level() != last_power_read {
+            last_power_read = get_current_power_level();
+            rfid.set_read_power(last_power_read);
+        }
 
         if rfid.check().await {
             let response_type = rfid.parse_response();
@@ -135,13 +149,14 @@ pub async fn rfid_task(
                     let mut unique_epc_tags = UNIQUE_EPC_TAGS.lock().await;
 
                     let result = check_if_unique(&mut unique_epc_tags, epc.clone());
+                    let _ = epc_read_detector_sender.try_send(EPCNotification::ReadDetected);
                     match result {
                         Ok(true) => {
                             println!("Saving unique tag: {}", output);
                             increment_bats();
                         }
                         Ok(false) => {
-                            // println!("found: {}", output);
+                            println!("found: {}", output);
                             continue;
                         }
                         Err(_) => {
@@ -164,6 +179,7 @@ pub async fn rfid_task(
                 }
                 ResponseError::ResponseIsHighReturnLoss => {
                     println!("High return loss, check antenna!");
+                    epc_read_detector_sender.send(EPCNotification::HighReturnLoss).await;
                 }
                 response_error => {
                     println!("Unexpected error: {:?}", response_error);
